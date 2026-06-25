@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Config Optimizer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f4f4f2;--bg3:#ededea;--bg4:#e6e5e2;
+  --tx:#1a1a18;--tx2:#5f5e5a;--tx3:#888780;
+  --bd:rgba(0,0,0,0.1);--bd2:rgba(0,0,0,0.2);
+  --rm:8px;--rl:14px;
+  --ibg:#e6f1fb;--itx:#185fa5;--ibd:rgba(24,95,165,0.3);
+  --wbg:#faeeda;--wtx:#854f0b;--wbd:rgba(186,117,23,0.3);
+  --sbg:#eaf3de;--stx:#3b6d11;--sbd:rgba(59,109,17,0.3);
+  --pbg:#f0eeff;--ptx:#5b4fcf;
+  --dtx:#a32d2d;
+  --fn:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mo:'SF Mono','Cascadia Code','Consolas',monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1e1e1c;--bg2:#272725;--bg3:#303030;--bg4:#3a3a38;
+  --tx:#f0efe8;--tx2:#b4b2a9;--tx3:#888780;
+  --bd:rgba(255,255,255,0.08);--bd2:rgba(255,255,255,0.18);
+  --ibg:#0c3d6b;--itx:#90c4f4;--ibd:rgba(144,196,244,0.3);
+  --wbg:#52300a;--wtx:#fac97a;--wbd:rgba(250,201,122,0.25);
+  --sbg:#1e4209;--stx:#a8d870;--sbd:rgba(168,216,112,0.3);
+  --pbg:#2d2660;--ptx:#b8aaff;
+  --dtx:#f09595;
+}}
+body{font-family:var(--fn);background:var(--bg3);color:var(--tx);min-height:100vh;padding:2rem 1rem}
+.wrap{max-width:900px;margin:0 auto}
+
+/* typography */
+h1{font-size:21px;font-weight:600;margin-bottom:3px}
+.sub{font-size:13px;color:var(--tx3);margin-bottom:1.5rem}
+.step-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);margin:1.75rem 0 .6rem;display:flex;align-items:center;gap:8px}
+.step-num{width:20px;height:20px;border-radius:50%;background:var(--bg4);color:var(--tx2);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-num.done{background:var(--sbg);color:var(--stx)}
+.step-num.active{background:var(--ibg);color:var(--itx)}
+hr.div{border:none;border-top:.5px solid var(--bd);margin:1.5rem 0}
+
+/* mode toggle */
+.mode-bar{display:flex;border:.5px solid var(--bd2);border-radius:var(--rl);overflow:hidden;width:fit-content;margin-bottom:1.5rem}
+.mode-btn{padding:8px 22px;font-size:13px;font-family:var(--fn);background:var(--bg2);color:var(--tx2);border:none;cursor:pointer;transition:background .15s,color .15s}
+.mode-btn+.mode-btn{border-left:.5px solid var(--bd2)}
+.mode-btn.active{background:var(--ibg);color:var(--itx);font-weight:500}
+
+/* cards / grids */
+.spec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem}
+.spec-card{background:var(--bg2);border-radius:var(--rm);padding:.75rem 1rem}
+.spec-card .lb{font-size:12px;color:var(--tx2);margin-bottom:3px}
+.spec-card .vl{font-size:15px;font-weight:500;color:var(--tx)}
+.spec-card .sb{font-size:11px;color:var(--tx3);margin-top:2px}
+
+/* inputs */
+select,input[type=number],input[type=text]{background:var(--bg);color:var(--tx);border:.5px solid var(--bd2);border-radius:var(--rm);padding:7px 10px;font-size:13px;font-family:var(--fn);outline:none;transition:border-color .15s}
+select:focus,input:focus{border-color:var(--itx)}
+input[type=number]{width:120px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--tx2);font-weight:500}
+.field-hint{font-size:11px;color:var(--tx3);line-height:1.5;max-width:220px}
+.warn-lbl{color:var(--wtx);font-weight:400}
+.fields-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+
+/* buttons */
+.btn{padding:8px 20px;border-radius:var(--rm);font-size:13px;font-family:var(--fn);cursor:pointer;font-weight:500;border:none;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--ibg);color:var(--itx);border:.5px solid var(--ibd)}
+.btn-ghost{background:var(--bg2);color:var(--tx2);border:.5px solid var(--bd2);display:inline-flex;align-items:center;gap:6px}
+.btn-ghost:hover{background:var(--bg4)}
+.btn-success{background:var(--sbg);color:var(--stx);border:.5px solid var(--sbd)}
+
+/* model cards */
+.model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:1rem}
+.model-card{background:var(--bg);border:.5px solid var(--bd2);border-radius:var(--rl);padding:.9rem 1rem;cursor:pointer;transition:border-color .15s,box-shadow .15s;position:relative}
+.model-card:hover{border-color:var(--itx);box-shadow:0 0 0 2px var(--ibd)}
+.model-card.selected{border-color:var(--itx);box-shadow:0 0 0 2px var(--ibd);background:var(--ibg)}
+.model-card.custom-card{border-style:dashed}
+.mc-name{font-size:14px;font-weight:500;color:var(--tx);margin-bottom:3px}
+.mc-quant{font-size:12px;color:var(--tx2);margin-bottom:6px}
+.mc-examples{font-size:11px;color:var(--tx3);line-height:1.4;margin-bottom:8px}
+.mc-fit{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;padding:2px 8px;border-radius:6px}
+.fit-great{background:var(--sbg);color:var(--stx)}
+.fit-ok{background:var(--wbg);color:var(--wtx)}
+.fit-tight{background:var(--wbg);color:var(--wtx)}
+.fit-no{background:#f5e0e0;color:var(--dtx)}
+.mc-headroom{font-size:11px;color:var(--tx3);margin-top:5px}
+
+/* app pills */
+.app-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+.app-pill{background:var(--bg2);border:.5px solid var(--bd2);border-radius:20px;padding:6px 16px;font-size:13px;font-family:var(--fn);color:var(--tx2);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.app-pill:hover{background:var(--bg4)}
+.app-pill.active{background:var(--ibg);color:var(--itx);border-color:var(--ibd);font-weight:500}
+
+/* rec cards */
+.rec-list{display:flex;flex-direction:column;gap:10px}
+.rec-card{background:var(--bg);border:.5px solid var(--bd);border-radius:var(--rl);padding:.9rem 1.1rem}
+.rec-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.rec-title{font-size:14px;font-weight:500;color:var(--tx)}
+.rec-tag{font-size:11px;font-weight:500;padding:2px 8px;border-radius:6px;margin-left:auto;white-space:nowrap}
+.tag-perf{background:var(--ibg);color:var(--itx)}
+.tag-mem{background:var(--wbg);color:var(--wtx)}
+.tag-speed{background:var(--sbg);color:var(--stx)}
+.tag-compat{background:var(--bg2);color:var(--tx2)}
+.tag-quality{background:var(--pbg);color:var(--ptx)}
+.rec-body{font-size:13px;color:var(--tx2);line-height:1.75}
+.rv{display:inline-block;background:var(--bg2);border-radius:4px;padding:1px 7px;font-family:var(--mo);font-size:12px;color:var(--tx);margin:0 2px}
+.where{display:inline-block;font-weight:500;color:var(--tx);min-width:115px}
+.rec-body br{display:block;content:'';margin-top:3px}
+
+/* sampling presets */
+.preset-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+.preset-pill{background:var(--bg2);border:.5px solid var(--bd2);border-radius:20px;padding:5px 14px;font-size:12px;font-family:var(--fn);color:var(--tx2);cursor:pointer;transition:all .15s}
+.preset-pill:hover{background:var(--bg4)}
+.preset-pill.active{background:var(--pbg);color:var(--ptx);border-color:rgba(91,79,207,.3);font-weight:500}
+.sampling-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem}
+.sample-card{background:var(--bg);border:.5px solid var(--bd);border-radius:var(--rm);padding:.7rem .9rem}
+.sample-card .lb{font-size:11px;color:var(--tx3);margin-bottom:3px}
+.sample-card .vl{font-size:16px;font-weight:600;color:var(--tx);font-family:var(--mo)}
+.sample-card .note{font-size:11px;color:var(--tx2);margin-top:3px;line-height:1.4}
+
+/* help overlay */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.help-panel{background:var(--bg);border-radius:var(--rl);max-width:660px;width:calc(100% - 2rem);max-height:82vh;overflow-y:auto;padding:1.75rem}
+.help-panel h2{font-size:18px;font-weight:600;margin-bottom:1.25rem}
+.help-sec{margin-bottom:1.5rem}
+.help-sec h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);margin-bottom:.6rem}
+.term{margin-bottom:.8rem}
+.term-name{font-weight:600;font-size:13px;color:var(--tx)}
+.term-def{font-size:13px;color:var(--tx2);line-height:1.6;margin-top:2px}
+
+/* use-case filter */
+.uc-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+.uc-pill{background:var(--bg2);border:.5px solid var(--bd2);border-radius:20px;padding:5px 14px;font-size:12px;font-family:var(--fn);color:var(--tx2);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.uc-pill:hover{background:var(--bg4)}
+.uc-pill.active{background:var(--sbg);color:var(--stx);border-color:var(--sbd);font-weight:500}
+/* model card expanded */
+.mc-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
+.mc-tag{font-size:11px;padding:1px 7px;border-radius:10px;background:var(--bg3);color:var(--tx2);border:.5px solid var(--bd)}
+.mc-ratings{display:flex;flex-direction:column;gap:4px;margin-bottom:7px}
+.rating-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--tx2);justify-content:space-between}
+.rating-bars{display:flex;gap:2px}
+.bar{width:14px;height:6px;border-radius:2px;background:var(--bg4)}
+.bar.on{background:var(--itx)}
+.bar.on.best{background:var(--stx)}
+.mc-blurb{font-size:12px;color:var(--tx2);line-height:1.55;margin-top:7px;display:none}
+.model-card.expanded .mc-blurb{display:block}
+.mc-expand{font-size:11px;color:var(--itx);cursor:pointer;margin-top:5px;background:none;border:none;font-family:var(--fn);padding:0;text-align:left}
+.model-card.dimmed{opacity:.45}
+.model-card[data-wontfit='1']{cursor:not-allowed}
+.model-card.highlighted{border-color:var(--stx);box-shadow:0 0 0 2px var(--sbd)}
+/* vram popup */
+.popup{display:none;position:absolute;top:26px;left:0;z-index:50;background:var(--bg);border:.5px solid var(--bd2);border-radius:var(--rl);padding:1rem 1.1rem;max-width:440px;box-shadow:0 6px 24px rgba(0,0,0,.15)}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.pulse{animation:pulse 1s infinite}
+#rsec,#model-step,#app-rec-step{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:.25rem">
+    <div>
+      <h1>LLM Config Optimizer</h1>
+      <p class="sub">Model-aware settings recommendations for your hardware and app</p>
+    </div>
+    <button class="btn btn-ghost" onclick="openHelp()" style="margin-top:4px">
+      <i class="ti ti-help" style="font-size:15px"></i> How this works
+    </button>
+  </div>
+
+  <!-- STEP 0: mode + hardware -->
+  <div class="step-label"><span class="step-num active" id="sn0">1</span> Deployment mode</div>
+  <div class="mode-bar">
+    <button class="mode-btn active" id="mode-desktop" onclick="setMode('desktop')">
+      <i class="ti ti-device-desktop" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>Desktop / Personal
+    </button>
+    <button class="mode-btn" id="mode-server" onclick="setMode('server')">
+      <i class="ti ti-server" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>Server / Multi-user
+    </button>
+  </div>
+
+  <!-- DESKTOP hardware -->
+  <div id="desktop-hw">
+    <div class="step-label" style="margin-top:.25rem"><span class="step-num active" id="sn1">2</span> Your system</div>
+    <div class="spec-grid">
+      <div class="spec-card"><div class="lb">Platform</div><div class="vl" id="d-platform">—</div></div>
+      <div class="spec-card"><div class="lb">CPU cores</div><div class="vl" id="d-cores">—</div></div>
+      <div class="spec-card"><div class="lb">System RAM</div><div class="vl" id="d-ram-card">—</div></div>
+      <div class="spec-card"><div class="lb">GPU / VRAM</div><div class="vl" id="d-gpu-card">—</div><div class="sb" id="d-vram-card"></div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">
+      <button class="btn btn-ghost" id="detect-btn" onclick="runDetect()">
+        <i class="ti ti-radar" style="font-size:14px"></i> Detect my system
+      </button>
+      <span id="detect-status" style="font-size:12px;color:var(--tx3)"></span>
+    </div>
+    <div style="display:grid;gap:14px;margin-bottom:1rem">
+      <div class="field">
+        <label>GPU preset</label>
+        <select id="d-gpusel" onchange="onDesktopGpuChange()" style="width:100%;max-width:480px">
+          <option value="">— select your GPU —</option>
+          <optgroup label="NVIDIA">
+            <option value="nvidia|4090|24">RTX 4090 (24 GB)</option>
+            <option value="nvidia|4080s|16">RTX 4080 / 4080 Super (16 GB)</option>
+            <option value="nvidia|4070tis|16">RTX 4070 Ti Super (16 GB)</option>
+            <option value="nvidia|4070ti|12">RTX 4070 Ti (12 GB)</option>
+            <option value="nvidia|4070s|12">RTX 4070 Super (12 GB)</option>
+            <option value="nvidia|4070|8">RTX 4070 (8 GB)</option>
+            <option value="nvidia|4060ti16|16">RTX 4060 Ti 16 GB</option>
+            <option value="nvidia|4060ti|8">RTX 4060 Ti 8 GB</option>
+            <option value="nvidia|4060|8">RTX 4060 (8 GB)</option>
+            <option value="nvidia|3090|24">RTX 3090 / 3090 Ti (24 GB)</option>
+            <option value="nvidia|3080ti|12">RTX 3080 Ti (12 GB)</option>
+            <option value="nvidia|3080|10">RTX 3080 (10 GB)</option>
+            <option value="nvidia|3070ti|8">RTX 3070 Ti (8 GB)</option>
+            <option value="nvidia|3070|8">RTX 3070 (8 GB)</option>
+            <option value="nvidia|3060|12">RTX 3060 (12 GB)</option>
+            <option value="nvidia|3060ti|8">RTX 3060 Ti (8 GB)</option>
+            <option value="nvidia|a6000|48">RTX A6000 (48 GB)</option>
+            <option value="nvidia|a5000|24">RTX A5000 (24 GB)</option>
+            <option value="nvidia|a4000|16">RTX A4000 (16 GB)</option>
+          </optgroup>
+          <optgroup label="AMD">
+            <option value="amd|7900xtx|24">RX 7900 XTX (24 GB)</option>
+            <option value="amd|7900xt|20">RX 7900 XT (20 GB)</option>
+            <option value="amd|7800xt|16">RX 7800 XT (16 GB)</option>
+            <option value="amd|7700xt|12">RX 7700 XT (12 GB)</option>
+            <option value="amd|7600|8">RX 7600 (8 GB)</option>
+            <option value="amd|6900xt|16">RX 6900 XT (16 GB)</option>
+            <option value="amd|6800xt|16">RX 6800 XT (16 GB)</option>
+            <option value="amd|6700xt|12">RX 6700 XT (12 GB)</option>
+            <option value="amd|6600xt|8">RX 6600 XT (8 GB)</option>
+          </optgroup>
+          <optgroup label="Apple Silicon">
+            <option value="apple|m4ultra|192">M4 Ultra (192 GB unified)</option>
+            <option value="apple|m4max|128">M4 Max (128 GB unified)</option>
+            <option value="apple|m4max|64">M4 Max (64 GB unified)</option>
+            <option value="apple|m4pro|48">M4 Pro (48 GB unified)</option>
+            <option value="apple|m4pro|24">M4 Pro (24 GB unified)</option>
+            <option value="apple|m4|16">M4 (16 GB unified)</option>
+            <option value="apple|m3ultra|192">M3 Ultra (192 GB unified)</option>
+            <option value="apple|m3max|96">M3 Max (96 GB unified)</option>
+            <option value="apple|m3max|48">M3 Max (48 GB unified)</option>
+            <option value="apple|m3pro|36">M3 Pro (36 GB unified)</option>
+            <option value="apple|m3pro|18">M3 Pro (18 GB unified)</option>
+            <option value="apple|m2max|96">M2 Max (96 GB unified)</option>
+            <option value="apple|m2max|32">M2 Max (32 GB unified)</option>
+            <option value="apple|m1max|64">M1 Max (64 GB unified)</option>
+            <option value="apple|m1max|32">M1 Max (32 GB unified)</option>
+            <option value="apple|m1pro|16">M1 Pro (16 GB unified)</option>
+          </optgroup>
+          <optgroup label="Intel Arc">
+            <option value="intel|a770|16">Arc A770 (16 GB)</option>
+            <option value="intel|a750|8">Arc A750 (8 GB)</option>
+            <option value="intel|a380|6">Arc A380 (6 GB)</option>
+          </optgroup>
+          <optgroup label="CPU / Integrated">
+            <option value="cpu|none|0">No dedicated GPU (CPU only)</option>
+            <option value="igpu|none|0">Integrated GPU (CPU only)</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="fields-row">
+        <div class="field">
+          <label>VRAM (GB) <span class="warn-lbl">— verify against GPU spec</span></label>
+          <input type="number" id="d-vram" min="0" max="512" step="1" placeholder="e.g. 16">
+          <div class="field-hint">
+            Drives every recommendation. If wrong, type the correct value.
+            <span style="position:relative;display:inline-block">
+              <button onclick="togglePopup('vram-popup')" style="background:none;border:.5px solid var(--bd2);border-radius:50%;width:17px;height:17px;font-size:10px;color:var(--tx3);cursor:pointer;vertical-align:middle;font-family:var(--fn);display:inline-flex;align-items:center;justify-content:center;margin-left:2px">?</button>
+              <div class="popup" id="vram-popup">
+                <div style="font-weight:600;font-size:13px;margin-bottom:.5rem">Finding VRAM on Windows</div>
+                <div style="font-size:12px;color:var(--tx2);line-height:1.8">
+                  <b>Task Manager (easiest)</b><br>
+                  <span class="rv">Ctrl+Shift+Esc</span> &rarr; Performance &rarr; GPU 0<br>
+                  Bottom-right: <b>Dedicated GPU Memory</b> = your VRAM<br><br>
+                  <b>Display settings</b><br>
+                  Right-click desktop &rarr; Display settings &rarr; Advanced display settings &rarr; Display adapter properties &rarr; Adapter tab &rarr; <b>Dedicated Video Memory</b><br><br>
+                  <b>Mac:</b> Apple menu &rarr; About This Mac &rarr; Graphics<br>
+                  <b>Linux:</b> <span class="rv">nvidia-smi</span> or <span class="rv">radeontop</span>
+                </div>
+                <button onclick="togglePopup('vram-popup')" style="margin-top:.6rem;padding:3px 10px;font-size:11px;background:var(--bg2);border:.5px solid var(--bd2);border-radius:var(--rm);color:var(--tx2);cursor:pointer;font-family:var(--fn)">Close</button>
+              </div>
+            </span>
+          </div>
+        </div>
+        <div class="field">
+          <label>System RAM (GB) <span class="warn-lbl">— enter actual amount</span></label>
+          <input type="number" id="d-ram" min="4" max="2048" step="1" placeholder="e.g. 64">
+          <div class="field-hint">Browsers cap at 8 GB. Check Task Manager &rarr; Performance &rarr; Memory.</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="showModels()" style="margin-bottom:1.5rem">
+      <i class="ti ti-search" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>Find compatible models
+    </button>
+  </div>
+
+  <!-- SERVER hardware -->
+  <div id="server-hw" style="display:none">
+    <div class="step-label" style="margin-top:.25rem"><span class="step-num active">2</span> Target system</div>
+    <div class="spec-grid">
+      <div class="spec-card"><div class="lb">OS</div><div class="vl" id="t-os-card">—</div></div>
+      <div class="spec-card"><div class="lb">CPU cores</div><div class="vl" id="t-cores-card">—</div></div>
+      <div class="spec-card"><div class="lb">System RAM</div><div class="vl" id="t-ram-card">—</div></div>
+      <div class="spec-card"><div class="lb">GPU / VRAM</div><div class="vl" id="t-gpu-card">—</div><div class="sb" id="t-vram-card"></div></div>
+    </div>
+    <div style="display:grid;gap:14px;margin-bottom:1rem">
+      <div class="fields-row">
+        <div class="field">
+          <label>Operating system</label>
+          <select id="s-os" onchange="updateServerCards()">
+            <option value="">— select OS —</option>
+            <option value="linux">Linux (Ubuntu / Debian / RHEL)</option>
+            <option value="linux-other">Linux (other)</option>
+            <option value="windows">Windows Server</option>
+            <option value="macos">macOS</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>CPU cores</label>
+          <input type="number" id="s-cores" min="1" max="1024" placeholder="e.g. 32" oninput="updateServerCards()">
+        </div>
+        <div class="field">
+          <label>System RAM (GB)</label>
+          <input type="number" id="s-ram" min="4" max="4096" placeholder="e.g. 128" oninput="updateServerCards()">
+        </div>
+      </div>
+      <div class="field">
+        <label>GPU in target server</label>
+        <select id="s-gpusel" onchange="onServerGpuChange()" style="width:100%;max-width:480px">
+          <option value="">— select GPU —</option>
+          <optgroup label="NVIDIA Datacenter">
+            <option value="nvidia|h100-80|80">H100 SXM / PCIe (80 GB)</option>
+            <option value="nvidia|h100-40|40">H100 NVL (40 GB)</option>
+            <option value="nvidia|a100-80|80">A100 (80 GB)</option>
+            <option value="nvidia|a100-40|40">A100 (40 GB)</option>
+            <option value="nvidia|l40s|48">L40S (48 GB)</option>
+            <option value="nvidia|l40|48">L40 (48 GB)</option>
+            <option value="nvidia|a40|48">A40 (48 GB)</option>
+          </optgroup>
+          <optgroup label="NVIDIA Consumer">
+            <option value="nvidia|4090|24">RTX 4090 (24 GB)</option>
+            <option value="nvidia|3090|24">RTX 3090 (24 GB)</option>
+            <option value="nvidia|a6000|48">RTX A6000 (48 GB)</option>
+            <option value="nvidia|a5000|24">RTX A5000 (24 GB)</option>
+            <option value="nvidia|a4000|16">RTX A4000 (16 GB)</option>
+          </optgroup>
+          <optgroup label="AMD">
+            <option value="amd|mi300x|192">MI300X (192 GB)</option>
+            <option value="amd|mi250|128">MI250 (128 GB)</option>
+            <option value="amd|7900xtx|24">RX 7900 XTX (24 GB)</option>
+          </optgroup>
+          <optgroup label="Apple Silicon">
+            <option value="apple|m4ultra|192">M4 Ultra (192 GB unified)</option>
+            <option value="apple|m3ultra|192">M3 Ultra (192 GB unified)</option>
+            <option value="apple|m2ultra|192">M2 Ultra (192 GB unified)</option>
+          </optgroup>
+          <optgroup label="CPU only">
+            <option value="cpu|none|0">No GPU — CPU only</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="fields-row">
+        <div class="field">
+          <label>VRAM per card (GB)</label>
+          <input type="number" id="s-vram" min="0" max="512" placeholder="e.g. 80" oninput="updateServerCards()">
+        </div>
+        <div class="field">
+          <label>Number of GPUs</label>
+          <input type="number" id="s-gpucount" min="1" max="16" value="1" placeholder="1" oninput="updateServerCards()">
+          <div class="field-hint">Total VRAM = per card × count</div>
+        </div>
+        <div class="field">
+          <label>Concurrent users</label>
+          <input type="number" id="s-concurrency" min="1" max="500" placeholder="e.g. 10">
+          <div class="field-hint">Simultaneous requests at peak load</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="showModels()" style="margin-bottom:1.5rem">
+      <i class="ti ti-search" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>Find compatible models
+    </button>
+  </div>
+
+  <!-- STEP 2: model selection -->
+  <div id="model-step">
+    <hr class="div">
+    <div class="step-label"><span class="step-num active" id="sn2">3</span> Select a model</div>
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:.9rem">Click the model you are running. Fit indicators are based on your available VRAM after model weights load.</p>
+    <!-- use-case filter -->
+    <div class="uc-bar" id="uc-bar"></div>
+    <div class="model-grid" id="model-grid"></div>
+
+    <!-- custom model entry -->
+    <div style="background:var(--bg2);border:.5px solid var(--bd2);border-radius:var(--rl);padding:1rem 1.1rem;margin-bottom:1rem">
+      <div style="font-size:13px;font-weight:500;color:var(--tx);margin-bottom:.6rem">
+        <i class="ti ti-pencil" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>Custom model
+      </div>
+      <div class="fields-row" style="gap:12px">
+        <div class="field">
+          <label>Model name</label>
+          <input type="text" id="custom-name" placeholder="e.g. Qwen2.5 14B" style="width:180px">
+        </div>
+        <div class="field">
+          <label>Size (B params)</label>
+          <input type="number" id="custom-params" min="0.5" max="700" step="0.5" placeholder="e.g. 14" style="width:100px">
+        </div>
+        <div class="field">
+          <label>Quantization</label>
+          <select id="custom-quant">
+            <option value="q4_k_m">Q4_K_M</option>
+            <option value="q5_k_m">Q5_K_M</option>
+            <option value="q6_k">Q6_K</option>
+            <option value="q8_0">Q8_0</option>
+            <option value="f16">F16 (full)</option>
+          </select>
+        </div>
+        <div class="field" style="justify-content:flex-end">
+          <button class="btn btn-ghost" onclick="selectCustomModel()">Use this model</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: app + generate -->
+  <div id="app-rec-step">
+    <hr class="div">
+    <div class="step-label"><span class="step-num active" id="sn3">4</span> Select your app</div>
+    <div class="app-bar" id="app-bar"></div>
+    <button class="btn btn-success" id="gen-btn" onclick="gen()" style="margin-bottom:1.5rem">
+      <i class="ti ti-bolt" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>Generate recommendations
+    </button>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="rsec">
+    <hr class="div">
+    <!-- selected model + app banner -->
+    <div id="rec-banner" style="background:var(--ibg);border:.5px solid var(--ibd);border-radius:var(--rl);padding:.75rem 1.1rem;margin-bottom:1rem;font-size:13px;color:var(--itx);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    </div>
+
+    <div class="rec-list" id="rec-list"></div>
+
+    <hr class="div">
+    <div class="step-label" style="margin-top:1.5rem"><span class="step-num done">&#10003;</span> Sampling &amp; generation presets</div>
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:.9rem">These settings control output style, not hardware — choose a preset based on what you are using the model for.</p>
+    <div class="preset-bar" id="preset-bar"></div>
+    <div class="sampling-grid" id="sampling-grid"></div>
+    <div class="rec-list" id="sampling-notes"></div>
+  </div>
+</div>
+
+<!-- help overlay -->
+<div class="overlay" id="helpOverlay" onclick="closeHelpBg(event)">
+  <div class="help-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+      <h2 style="margin:0">How this works &amp; glossary</h2>
+      <button onclick="closeHelp()" style="background:none;border:none;font-size:24px;color:var(--tx3);cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+    </div>
+
+    <div class="help-sec">
+      <h3>How to use this tool</h3>
+      <p style="font-size:13px;color:var(--tx2);line-height:1.7">
+        <b>1. Choose Desktop or Server mode.</b> Desktop is for running models on your own machine. Server is for planning or optimizing a machine others will access — all fields are manual since your current computer is irrelevant.<br><br>
+        <b>2. Enter your hardware.</b> On desktop, click Detect to pre-fill what the browser can read, then confirm or correct VRAM and RAM manually. On server, enter the target machine specs directly.<br><br>
+        <b>3. Find compatible models.</b> Model cards appear with fit indicators showing what runs well, what&#39;s tight, and what won&#39;t fit. Headroom shown is VRAM remaining after the model loads — that&#39;s what&#39;s available for context (KV cache).<br><br>
+        <b>4. Select a model.</b> Click the card for what you are actually running. If it&#39;s not listed, use the Custom model entry below the cards.<br><br>
+        <b>5. Select your app</b> and click Generate. Recommendations are tuned to that specific model on your hardware in your app — not just generic GPU advice.<br><br>
+        <b>6. Sampling presets</b> appear at the bottom — pick the preset that matches your use case for output quality settings.
+      </p>
+    </div>
+
+    <div class="help-sec">
+      <h3>General terms</h3>
+      <div class="term"><div class="term-name">VRAM (Video RAM)</div><div class="term-def">Memory on your graphics card. Model weights and working data live here during inference. More VRAM = bigger models and longer conversations. Completely separate from system RAM.</div></div>
+      <div class="term"><div class="term-name">Model weights</div><div class="term-def">The data that makes up an AI model — billions of numbers learned during training. Loading a model means reading these weights into VRAM. A 12B Q4_K_M model uses roughly 7–8 GB of VRAM just for weights before any conversation starts.</div></div>
+      <div class="term"><div class="term-name">Quantization (Q4, Q5, Q6, Q8)</div><div class="term-def">Compression that reduces the precision of model weights to save memory. Q4 uses 4 bits per value, Q8 uses 8 bits. Lower = smaller and less VRAM but slightly lower quality. Q4_K_M is the most common sweet spot. Q8 is near full quality. F16 is full precision — largest, best quality.</div></div>
+      <div class="term"><div class="term-name">Inference</div><div class="term-def">Running a model to generate a response. Every message and reply is an inference.</div></div>
+      <div class="term"><div class="term-name">Token / tok/s</div><div class="term-def">The basic unit of text — roughly 3/4 of a word. Tok/s is generation speed. 10–20 tok/s feels like comfortable reading speed. Below 3 tok/s starts to feel slow. GPU inference is typically 10–100x faster than CPU-only.</div></div>
+      <div class="term"><div class="term-name">VRAM headroom</div><div class="term-def">VRAM remaining after model weights are loaded. This headroom is what powers your context window (KV cache). More headroom = longer conversations and faster processing.</div></div>
+    </div>
+
+    <div class="help-sec">
+      <h3>Settings terms</h3>
+      <div class="term"><div class="term-name">GPU Layers / n_gpu_layers</div><div class="term-def">How many layers of the model to run on GPU. Setting to -1 or max means fit as many as VRAM allows. More layers on GPU = faster generation. If VRAM runs out the app crashes or slows — reduce until stable.</div></div>
+      <div class="term"><div class="term-name">Context length / n_ctx</div><div class="term-def">Maximum tokens the model can see at once — your prompt plus conversation history plus the response. Larger = longer conversations but consumes more VRAM via the KV cache. The tool calculates your safe maximum based on actual headroom.</div></div>
+      <div class="term"><div class="term-name">KV cache</div><div class="term-def">Stores intermediate calculations for every token so they are not recomputed. Lives in VRAM and grows as conversations get longer. KV cache quantization (Q8, Q4) compresses it to save VRAM with minimal quality impact.</div></div>
+      <div class="term"><div class="term-name">Batch size / n_batch</div><div class="term-def">How many tokens are processed in parallel when reading your prompt. Larger = faster prompt ingestion but more VRAM. Does not affect generation speed (tok/s).</div></div>
+      <div class="term"><div class="term-name">Flash attention</div><div class="term-def">A more memory-efficient attention computation. Reduces VRAM usage and speeds up long contexts. Safe to enable — no quality change. Works on CUDA, Metal, and Vulkan.</div></div>
+      <div class="term"><div class="term-name">Mmap / Mlock</div><div class="term-def">Mmap = memory-mapped file loading — faster model load times. Mlock = pins the model in RAM so the OS cannot swap it to disk — prevents slowdowns but requires enough RAM to hold the full model.</div></div>
+      <div class="term"><div class="term-name">RoPE scaling</div><div class="term-def">A technique to extend a model&#39;s context beyond what it was trained on. A model trained at 4K context can be pushed to 32K with RoPE scaling, with some quality degradation at very long ranges.</div></div>
+      <div class="term"><div class="term-name">Backend (CUDA / ROCm / Metal / Vulkan)</div><div class="term-def">The software layer connecting the LLM app to your GPU. CUDA = NVIDIA native (fastest on NVIDIA). ROCm = AMD native on Linux. Metal = Apple GPU. Vulkan = cross-platform fallback — works on most GPUs but slower than native options.</div></div>
+    </div>
+
+    <div class="help-sec">
+      <h3>Sampling terms</h3>
+      <div class="term"><div class="term-name">Temperature</div><div class="term-def">Controls randomness. 0 = always pick the most likely word (deterministic). 1 = sample normally. Higher = more creative and unpredictable. For coding or factual tasks, use low values (0.1–0.3). For creative writing, use higher (0.8–1.2).</div></div>
+      <div class="term"><div class="term-name">Top-P (nucleus sampling)</div><div class="term-def">Limits token selection to the smallest set of top candidates whose probabilities sum to P. At 0.95, the model only considers tokens that collectively account for 95% of the probability mass. Filters out unlikely garbage tokens.</div></div>
+      <div class="term"><div class="term-name">Min-P</div><div class="term-def">A newer alternative to Top-P. Filters out tokens whose probability falls below a minimum threshold relative to the top token. Often produces more coherent output than Top-P at the same settings.</div></div>
+      <div class="term"><div class="term-name">Top-K</div><div class="term-def">Limits token selection to the K most likely candidates at each step. Lower = more focused, higher = more variety. Often used alongside Top-P.</div></div>
+      <div class="term"><div class="term-name">Repeat penalty</div><div class="term-def">Penalizes the model for repeating tokens it already used. Values above 1.0 discourage repetition. Too high causes avoidance of common words. 1.05–1.15 is a safe range.</div></div>
+      <div class="term"><div class="term-name">Seed</div><div class="term-def">A number that fixes the random starting point for generation. Same seed + same prompt = same output every time. Useful for reproducible testing. -1 = random each time.</div></div>
+      <div class="term"><div class="term-name">Max tokens / n_predict</div><div class="term-def">Hard cap on response length. -1 = unlimited (model decides when to stop). Set a value to prevent very long runaway responses.</div></div>
+    </div>
+
+    <div class="help-sec">
+      <h3>Server-specific terms</h3>
+      <div class="term"><div class="term-name">Concurrent users / parallel slots</div><div class="term-def">How many requests are processed simultaneously. Each active request needs its own KV cache in VRAM — more users = more VRAM consumed regardless of model size.</div></div>
+      <div class="term"><div class="term-name">Continuous batching</div><div class="term-def">Processes multiple requests in overlapping batches rather than sequentially. Dramatically improves throughput when many users are active simultaneously. Automatic in vLLM, TGI, and llama.cpp server.</div></div>
+      <div class="term"><div class="term-name">Throughput vs latency</div><div class="term-def">Throughput = total tokens per second across all users. Latency = how long one user waits. Server deployments usually optimize throughput; desktop optimizes latency. You cannot fully maximize both simultaneously.</div></div>
+      <div class="term"><div class="term-name">Tensor parallelism</div><div class="term-def">Splits each model layer across multiple GPUs simultaneously. Best for large models that do not fit on one card. Requires fast GPU interconnects — NVLink ideal, PCIe works but is slower.</div></div>
+      <div class="term"><div class="term-name">PagedAttention / prefix caching</div><div class="term-def">Used in vLLM — manages KV cache like virtual memory. Multiple users sharing the same system prompt reuse cached computations. Saves significant VRAM in production deployments.</div></div>
+      <div class="term"><div class="term-name">vLLM / TGI / llama.cpp server</div><div class="term-def">Server frameworks for hosting LLMs. vLLM optimizes for high throughput with PagedAttention. TGI (Hugging Face) is production-hardened with built-in monitoring. llama.cpp server is lightweight and works on consumer hardware. All expose an OpenAI-compatible API.</div></div>
+    </div>
+
+    <button class="btn btn-ghost" onclick="closeHelp()" style="margin-top:.5rem">Close</button>
+  </div>
+</div>
+
+<script>
+// ── state ─────────────────────────────────────────────────────────────────────
+var state = {
+  mode: 'desktop',
+  vendor: '', vram: 0, ram: 16, cores: 8, isApple: false,
+  serverOs: 'linux', serverCores: 16, serverRam: 64, gpuCount: 1,
+  model: null,   // { name, params, quant, vramGB, examples }
+  app: null,
+  isLinux: true
+};
+
+var PORTS = [3000,3001,3002,4000,5000,8080,8000];
+
+// ── model presets ─────────────────────────────────────────────────────────────
+// vramGB = realistic Q4_K_M VRAM for weights only (KV cache is extra)
+var MODEL_PRESETS = [
+  {
+    name:'1–3B', quant:'Q4_K_M', params:2, vramGB:1.2,
+    examples:'Gemma 3 2B, Phi-4 mini, SmolLM2',
+    tags:['fast','chat','edge'],
+    ratings:{ speed:3, quality:1, reasoning:1, coding:1 },
+    blurb:'Best for speed and low-resource use. Small models respond almost instantly and run on any hardware. Quality and reasoning depth are limited — good for simple chat, classification, or summarization where speed matters more than depth.',
+    bestFor:['chat','fast']
+  },
+  {
+    name:'7–9B', quant:'Q4_K_M', params:8, vramGB:4.8,
+    examples:'Llama 3.1 8B, Mistral 7B, Gemma 3 9B',
+    tags:['balanced','chat','coding'],
+    ratings:{ speed:3, quality:2, reasoning:2, coding:2 },
+    blurb:'The sweet spot for most desktop users. Fast enough for real-time conversation, capable enough for everyday coding and analysis. Llama 3.1 8B and Gemma 3 9B punch above their weight class. Q4_K_M keeps VRAM low while maintaining good quality.',
+    bestFor:['chat','coding','fast']
+  },
+  {
+    name:'7–9B', quant:'Q8_0', params:8, vramGB:8.5,
+    examples:'Llama 3.1 8B Q8, Gemma 3 9B Q8',
+    tags:['quality','chat','coding'],
+    ratings:{ speed:2, quality:3, reasoning:2, coding:2 },
+    blurb:'Same models as the Q4 version but at near-full precision. Noticeably better output quality for coding and nuanced writing. Use this when you have the VRAM headroom and want the best 8B can offer without stepping up to a 13B model.',
+    bestFor:['chat','coding','creative']
+  },
+  {
+    name:'12–14B', quant:'Q4_K_M', params:13, vramGB:7.5,
+    examples:'Gemma 4 12B, Phi-4 14B, Qwen2.5 14B',
+    tags:['reasoning','coding','balanced'],
+    ratings:{ speed:2, quality:3, reasoning:3, coding:3 },
+    blurb:'The current sweet spot for capability per VRAM dollar. Phi-4 14B is exceptional at reasoning and math for its size. Gemma 4 12B has strong multimodal roots and excellent general capability. Qwen2.5 14B is a top coding choice at this tier. These models significantly outperform 7B on complex tasks.',
+    bestFor:['coding','reasoning','chat','rag']
+  },
+  {
+    name:'12–14B', quant:'Q6_K', params:13, vramGB:10.2,
+    examples:'Gemma 4 12B Q6, Phi-4 14B Q6',
+    tags:['quality','reasoning','coding'],
+    ratings:{ speed:2, quality:3, reasoning:3, coding:3 },
+    blurb:'Q6_K hits near-Q8 quality at meaningfully lower VRAM cost than full Q8. If you want the best 12–14B quality without going to Q8, this is the right quant. Recommended if you have 12+ GB VRAM and want maximum output quality from this size class.',
+    bestFor:['coding','reasoning','creative','rag']
+  },
+  {
+    name:'12–14B', quant:'Q8_0', params:13, vramGB:13.5,
+    examples:'Gemma 4 12B Q8, Phi-4 14B Q8',
+    tags:['quality','reasoning','coding'],
+    ratings:{ speed:2, quality:3, reasoning:3, coding:3 },
+    blurb:'Full quality 12–14B. Indistinguishable from F16 for most tasks. Use this if VRAM allows and you need the absolute best output from this size class — ideal for coding assistants, complex document analysis, and structured output generation.',
+    bestFor:['coding','reasoning','rag']
+  },
+  {
+    name:'27–32B', quant:'Q4_K_M', params:30, vramGB:17.0,
+    examples:'Gemma 3 27B, Qwen2.5 32B, Mistral Small',
+    tags:['reasoning','multilingual','coding'],
+    ratings:{ speed:1, quality:3, reasoning:3, coding:3 },
+    blurb:'A significant capability jump over 13B. Gemma 3 27B has strong multilingual and reasoning ability. Qwen2.5 32B is among the best coding models available at any size. Mistral Small 22B is highly efficient. This size class handles complex multi-step reasoning, long-form writing, and advanced coding tasks that stump smaller models.',
+    bestFor:['coding','reasoning','multilingual','rag','creative']
+  },
+  {
+    name:'27–32B', quant:'Q6_K', params:30, vramGB:22.5,
+    examples:'Gemma 3 27B Q6, Qwen2.5 32B Q6',
+    tags:['quality','reasoning','coding'],
+    ratings:{ speed:1, quality:3, reasoning:3, coding:3 },
+    blurb:'Near-lossless quality at 27–32B scale. If you have a 24+ GB card and want the best possible output from this size class, Q6_K is the optimal quant. Qwen2.5 32B Q6 is one of the strongest coding models that fits on consumer hardware.',
+    bestFor:['coding','reasoning','rag']
+  },
+  {
+    name:'70–72B', quant:'Q4_K_M', params:70, vramGB:39.0,
+    examples:'Llama 3.3 70B, Qwen2.5 72B',
+    tags:['quality','reasoning','coding','multilingual'],
+    ratings:{ speed:1, quality:3, reasoning:3, coding:3 },
+    blurb:'The quality ceiling for most local setups. Llama 3.3 70B is one of the most capable open models available and rivals much larger proprietary models on many benchmarks. Qwen2.5 72B is exceptional at coding and math. Requires high-end multi-GPU or datacenter hardware. Generation will be slower but output quality is significantly better than smaller models.',
+    bestFor:['coding','reasoning','multilingual','rag','creative']
+  },
+  {
+    name:'70–72B', quant:'Q6_K', params:70, vramGB:53.0,
+    examples:'Llama 3.3 70B Q6',
+    tags:['quality','reasoning'],
+    ratings:{ speed:1, quality:3, reasoning:3, coding:3 },
+    blurb:'Near-lossless 70B. Requires 60+ GB VRAM — datacenter GPUs or high-end multi-GPU setups only. The best local model quality achievable on current consumer-accessible hardware.',
+    bestFor:['reasoning','rag','creative']
+  },
+  {
+    name:'70–72B', quant:'Q8_0', params:70, vramGB:73.0,
+    examples:'Llama 3.3 70B Q8',
+    tags:['quality'],
+    ratings:{ speed:1, quality:3, reasoning:3, coding:3 },
+    blurb:'Full-precision 70B. Requires 80+ GB VRAM — effectively datacenter-only (A100/H100/MI300X or larger multi-GPU configs). Indistinguishable from F16 in practice. Only choose this if you have the hardware and need to rule out quantization as a variable.',
+    bestFor:['reasoning','rag']
+  },
+];
+
+// quant VRAM multipliers (GB per billion params)
+var QUANT_BPW = { q4_k_m:0.55, q5_k_m:0.65, q6_k:0.78, q8_0:1.0, f16:2.0 };
+
+// KV cache GB per 1K tokens (approximate, varies by architecture)
+function kvCachePerKToken(params) {
+  // rough: 2 * layers * hidden_dim * 2 bytes / 1024 tokens
+  // simplified: ~params * 0.008 GB per 1K ctx at f16
+  return Math.max(0.05, params * 0.007);
+}
+
+// ── mode ──────────────────────────────────────────────────────────────────────
+function setMode(m) {
+  state.mode = m;
+  document.getElementById('mode-desktop').classList.toggle('active', m==='desktop');
+  document.getElementById('mode-server').classList.toggle('active', m==='server');
+  document.getElementById('desktop-hw').style.display = m==='desktop'?'block':'none';
+  document.getElementById('server-hw').style.display  = m==='server'?'block':'none';
+  document.getElementById('model-step').style.display = 'none';
+  document.getElementById('app-rec-step').style.display = 'none';
+  document.getElementById('rsec').style.display = 'none';
+  state.model = null; state.app = null;
+}
+
+// ── help ──────────────────────────────────────────────────────────────────────
+function openHelp()  { document.getElementById('helpOverlay').classList.add('open'); }
+function closeHelp() { document.getElementById('helpOverlay').classList.remove('open'); }
+function closeHelpBg(e) { if(e.target===document.getElementById('helpOverlay')) closeHelp(); }
+
+function togglePopup(id) {
+  var p = document.getElementById(id);
+  p.style.display = p.style.display==='block' ? 'none' : 'block';
+}
+
+// ── desktop detect ────────────────────────────────────────────────────────────
+async function tryPort(port) {
+  try {
+    var r = await fetch('http://localhost:'+port+'/api/sysinfo', {signal:AbortSignal.timeout(1500)});
+    if (r.ok) return await r.json();
+  } catch(_) {}
+  return null;
+}
+
+function setDetectStatus(txt, color) {
+  var el = document.getElementById('detect-status');
+  el.textContent = txt; el.style.color = color||'var(--tx3)';
+}
+
+async function runDetect() {
+  var btn = document.getElementById('detect-btn');
+  btn.disabled = true;
+  setDetectStatus('Detecting...','var(--wtx)');
+  var ua=navigator.userAgent, p=navigator.platform||'';
+  if(/Mac/.test(p)||/Mac/.test(ua)) p='macOS';
+  else if(/Win/.test(p)||/Win/.test(ua)) p='Windows';
+  else if(/Linux/.test(ua)) p='Linux';
+  state.cores = navigator.hardwareConcurrency||8;
+  document.getElementById('d-platform').textContent = p||'—';
+  document.getElementById('d-cores').textContent = state.cores;
+  document.getElementById('d-ram-card').textContent = 'Enter below';
+  var data=null;
+  for(var i=0;i<PORTS.length;i++){ data=await tryPort(PORTS[i]); if(data) break; }
+  if(data){
+    if(data.cores){ state.cores=data.cores; document.getElementById('d-cores').textContent=data.cores; }
+    if(data.ramGB){ document.getElementById('d-ram').value=data.ramGB; document.getElementById('d-ram-card').textContent=data.ramGB+' GB'; }
+    if(data.primaryGpu){
+      var gpu=data.primaryGpu;
+      state.vendor=gpu.vendor||'unknown'; state.vram=gpu.vramGB||0; state.isApple=gpu.vendor==='apple';
+      document.getElementById('d-vram').value=gpu.vramGB||'';
+      document.getElementById('d-gpu-card').textContent=gpu.name;
+      document.getElementById('d-vram-card').textContent=gpu.vramGB?gpu.vramGB+' GB':'';
+      matchGpuDropdown('d-gpusel',gpu.name,gpu.vendor);
+    }
+    if(data.gpus&&data.gpus.length>1){
+      var total=data.gpus.reduce(function(a,g){return a+(g.vramGB||0);},0);
+      state.vram=total;
+      document.getElementById('d-gpu-card').textContent=data.gpus.map(function(g){return g.name;}).join(' + ');
+      document.getElementById('d-vram-card').textContent=total+' GB total';
+      document.getElementById('d-vram').value=total;
+    }
+    setDetectStatus('Detected via LM Preview — confirm values below','var(--stx)');
+  } else {
+    setDetectStatus('Standalone — confirm or correct values below','var(--tx3)');
+  }
+  btn.disabled=false;
+}
+
+function matchGpuDropdown(selId, name, vendor) {
+  var sel=document.getElementById(selId), n=name.toLowerCase(), best=null, bestScore=0;
+  for(var i=0;i<sel.options.length;i++){
+    var opt=sel.options[i]; if(!opt.value) continue;
+    var parts=opt.value.split('|'); if(parts[0]!==vendor) continue;
+    var words=opt.text.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(' ').filter(Boolean);
+    var score=words.filter(function(w){return w.length>2&&n.indexOf(w)>=0;}).length;
+    if(score>bestScore){bestScore=score;best=i;}
+  }
+  if(best!==null&&bestScore>0) sel.selectedIndex=best;
+}
+
+function onDesktopGpuChange(){
+  var v=document.getElementById('d-gpusel').value; if(!v) return;
+  var parts=v.split('|');
+  state.vendor=parts[0]; state.vram=parseInt(parts[2]); state.isApple=parts[0]==='apple';
+  document.getElementById('d-vram').value=state.vram||'';
+  document.getElementById('d-gpu-card').textContent=document.getElementById('d-gpusel').selectedOptions[0].text;
+  document.getElementById('d-vram-card').textContent=state.vram?state.vram+' GB':'';
+}
+
+// ── server ────────────────────────────────────────────────────────────────────
+function onServerGpuChange(){
+  var v=document.getElementById('s-gpusel').value; if(!v) return;
+  var parts=v.split('|');
+  document.getElementById('s-vram').value=parseInt(parts[2])||'';
+  updateServerCards();
+}
+
+function updateServerCards(){
+  var osMap={'linux':'Linux','linux-other':'Linux','windows':'Windows Server','macos':'macOS'};
+  var os=document.getElementById('s-os').value;
+  var cores=document.getElementById('s-cores').value;
+  var ram=document.getElementById('s-ram').value;
+  var vram=parseInt(document.getElementById('s-vram').value)||0;
+  var count=parseInt(document.getElementById('s-gpucount').value)||1;
+  var gpu=document.getElementById('s-gpusel').selectedOptions[0];
+  document.getElementById('t-os-card').textContent=osMap[os]||'—';
+  document.getElementById('t-cores-card').textContent=cores||'—';
+  document.getElementById('t-ram-card').textContent=ram?ram+' GB':'—';
+  document.getElementById('t-gpu-card').textContent=(gpu&&gpu.value)?gpu.text:'—';
+  document.getElementById('t-vram-card').textContent=vram*count?vram*count+' GB total':'';
+}
+
+// ── getters ───────────────────────────────────────────────────────────────────
+function getEffectiveVram(){
+  if(state.mode==='desktop'){
+    var v=parseInt(document.getElementById('d-vram').value);
+    return (!isNaN(v)&&v>=0)?v:state.vram;
+  } else {
+    var v=parseInt(document.getElementById('s-vram').value);
+    var c=parseInt(document.getElementById('s-gpucount').value)||1;
+    return (!isNaN(v)&&v>0)?v*c:0;
+  }
+}
+function getEffectiveRam(){
+  if(state.mode==='desktop'){
+    var v=parseInt(document.getElementById('d-ram').value); return (!isNaN(v)&&v>0)?v:16;
+  } else {
+    var v=parseInt(document.getElementById('s-ram').value); return (!isNaN(v)&&v>0)?v:64;
+  }
+}
+function getEffectiveCores(){
+  if(state.mode==='desktop') return state.cores||8;
+  var v=parseInt(document.getElementById('s-cores').value); return (!isNaN(v)&&v>0)?v:16;
+}
+function getEffectiveVendor(){
+  if(state.mode==='desktop') return state.vendor||(state.isApple?'apple':'cpu');
+  var v=document.getElementById('s-gpusel').value; return v?v.split('|')[0]:'cpu';
+}
+function getGpuCount(){
+  if(state.mode==='desktop') return 1;
+  var v=parseInt(document.getElementById('s-gpucount').value); return (!isNaN(v)&&v>0)?v:1;
+}
+function getConcurrency(){
+  var v=parseInt(document.getElementById('s-concurrency').value); return (!isNaN(v)&&v>0)?v:5;
+}
+function getServerOs(){
+  var v=document.getElementById('s-os').value; return v||'linux';
+}
+
+// ── show models ───────────────────────────────────────────────────────────────
+function showHwError(msg){
+  var el=document.getElementById('hw-error');
+  if(!el){
+    el=document.createElement('div');
+    el.id='hw-error';
+    el.style.cssText='background:var(--wbg);border:.5px solid var(--wbd);border-radius:var(--rm);padding:.6rem .9rem;font-size:13px;color:var(--wtx);margin-bottom:1rem;line-height:1.6';
+    var ms=document.getElementById('model-step');
+    ms.parentNode.insertBefore(el,ms);
+  }
+  el.innerHTML='<i class="ti ti-alert-triangle" style="font-size:14px;vertical-align:-2px;margin-right:6px"></i>'+msg;
+  el.style.display='block';
+  // hide all downstream steps and clear state so nothing is selectable
+  document.getElementById('model-step').style.display='none';
+  document.getElementById('app-rec-step').style.display='none';
+  document.getElementById('rsec').style.display='none';
+  state.model=null; state.app=null;
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function clearHwError(){
+  var el=document.getElementById('hw-error');
+  if(el) el.style.display='none';
+}
+
+var activeUseCase = 'all';
+
+var USE_CASES = [
+  { id:'all',         label:'All models',      icon:'ti-layout-grid' },
+  { id:'chat',        label:'Chat / General',  icon:'ti-message-circle' },
+  { id:'coding',      label:'Coding',          icon:'ti-code' },
+  { id:'reasoning',   label:'Reasoning',       icon:'ti-brain' },
+  { id:'creative',    label:'Creative writing', icon:'ti-writing' },
+  { id:'rag',         label:'RAG / Documents', icon:'ti-file-search' },
+  { id:'fast',        label:'Speed priority',  icon:'ti-bolt' },
+  { id:'multilingual',label:'Multilingual',    icon:'ti-world' },
+];
+
+var RATING_LABELS = { speed:'Speed', quality:'Quality', reasoning:'Reasoning', coding:'Coding' };
+
+function showModels(){
+  // validate required fields
+  if(state.mode==='server'){
+    var missing=[];
+    if(!document.getElementById('s-os').value) missing.push('Operating system');
+    if(!document.getElementById('s-cores').value || parseInt(document.getElementById('s-cores').value)<1) missing.push('CPU cores');
+    if(!document.getElementById('s-ram').value || parseInt(document.getElementById('s-ram').value)<1) missing.push('System RAM (GB)');
+    var gpuVal=document.getElementById('s-gpusel').value;
+    if(!gpuVal) missing.push('GPU');
+    if(missing.length){
+      showHwError('Please fill in all required fields before finding models:<br><b>'+missing.join(', ')+'</b>');
+      return;
+    }
+    var isCpuOnly=gpuVal.indexOf('cpu|')===0||gpuVal.indexOf('igpu|')===0;
+    // VRAM must be entered and positive if a real GPU is selected
+    var vramInput=parseInt(document.getElementById('s-vram').value);
+    if(!isCpuOnly&&(isNaN(vramInput)||vramInput<=0)){
+      showHwError('Please enter a valid VRAM amount (GB) for the selected GPU.');
+      return;
+    }
+    // Concurrency sanity check
+    var gpuCount=parseInt(document.getElementById('s-gpucount').value)||1;
+    var totalVram=isCpuOnly?0:(vramInput*gpuCount);
+    var ram=parseInt(document.getElementById('s-ram').value)||64;
+    var cores=parseInt(document.getElementById('s-cores').value)||16;
+    var conc=parseInt(document.getElementById('s-concurrency').value)||0;
+    if(conc<1){
+      showHwError('Please enter a valid number of concurrent users (at least 1).');
+      return;
+    }
+    // CPU-only: warn but allow — cap at cores/2 realistically
+    if(isCpuOnly){
+      var cpuMaxSlots=Math.max(1,Math.floor(cores/2));
+      if(conc>cpuMaxSlots){
+        showHwError(
+          'CPU-only server with <b>'+conc+' concurrent users</b> is not realistic.<br>'
+          +'Without a GPU, inference is slow (~2–8 tok/s per request). With <b>'+cores+' CPU cores</b>, '
+          +'a realistic concurrent limit is <b>'+cpuMaxSlots+' users</b>. '
+          +'Consider adding a GPU for any meaningful multi-user workload.'
+        );
+        return;
+      }
+    } else {
+      // GPU server: cap based on VRAM and cores
+      var maxRealisticSlots=Math.floor(totalVram*0.6/0.5);
+      maxRealisticSlots=Math.min(maxRealisticSlots, cores*4);
+      maxRealisticSlots=Math.max(1,maxRealisticSlots);
+      if(conc>maxRealisticSlots){
+        showHwError(
+          'Concurrent users set to <b>'+conc.toLocaleString()+'</b> — this is not realistic for the specified hardware.<br>'
+          +'With <b>'+totalVram+' GB VRAM</b> and <b>'+cores+' CPU cores</b>, a realistic maximum is around <b>'+maxRealisticSlots+' concurrent users</b>. '
+          +'Please enter a realistic value.'
+        );
+        return;
+      }
+    }
+  } else {
+    // desktop: need at least VRAM or RAM
+    if(!document.getElementById('d-vram').value && !document.getElementById('d-ram').value){
+      showHwError('Please enter your VRAM and System RAM before finding models.');
+      return;
+    }
+  }
+  clearHwError();
+
+  var vram=getEffectiveVram(), ram=getEffectiveRam();
+  var vendor=getEffectiveVendor();
+  var isApple=vendor==='apple', cpuOnly=vendor==='cpu'||vendor==='igpu'||vram===0;
+  var effectiveMem=isApple?ram:cpuOnly?Math.floor(ram*0.55):vram;
+
+  if(effectiveMem<=0){
+    showHwError('Effective memory is 0 — please check your VRAM and RAM values.');
+    return;
+  }
+
+  // update desktop cards
+  if(state.mode==='desktop'){
+    document.getElementById('d-ram-card').textContent = getEffectiveRam()+' GB';
+    var vv=getEffectiveVram();
+    document.getElementById('d-vram-card').textContent = vv?vv+' GB':'';
+    var gpuOpt=document.getElementById('d-gpusel').selectedOptions[0];
+    if(gpuOpt&&gpuOpt.value&&document.getElementById('d-gpu-card').textContent==='—')
+      document.getElementById('d-gpu-card').textContent=gpuOpt.text;
+  }
+
+  // build use-case filter bar
+  buildUcBar(effectiveMem);
+
+  // render cards
+  renderModelCards(effectiveMem);
+
+  document.getElementById('model-step').style.display='block';
+  document.getElementById('app-rec-step').style.display='none';
+  document.getElementById('rsec').style.display='none';
+  state.model=null; state.app=null;
+  document.getElementById('model-step').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function buildUcBar(effectiveMem){
+  var bar = document.getElementById('uc-bar');
+  bar.innerHTML='';
+  USE_CASES.forEach(function(uc){
+    var pill=document.createElement('button');
+    pill.className='uc-pill'+(uc.id===activeUseCase?' active':'');
+    pill.dataset.uc=uc.id;
+    pill.innerHTML='<i class="ti '+uc.icon+'" style="font-size:12px"></i>'+uc.label;
+    pill.onclick=function(){
+      activeUseCase=this.dataset.uc;
+      document.querySelectorAll('.uc-pill').forEach(function(p){ p.classList.toggle('active',p.dataset.uc===activeUseCase); });
+      renderModelCards(effectiveMem);
+    };
+    bar.appendChild(pill);
+  });
+}
+
+function renderModelCards(effectiveMem){
+  var grid=document.getElementById('model-grid');
+  grid.innerHTML='';
+
+  // Map use case to rating dimension
+  var UC_DIM = { coding:'coding', reasoning:'reasoning', fast:'speed', chat:'quality', creative:'quality', rag:'reasoning', multilingual:'quality' };
+
+  // sort: if use case selected, put highest rated first
+  var sorted = MODEL_PRESETS.slice().map(function(m,i){ return {m:m, origIdx:i}; });
+  if(activeUseCase!=='all'){
+    var dim = UC_DIM[activeUseCase]||'quality';
+    sorted.sort(function(a,b){
+      var rA=a.m.ratings[dim]||0, rB=b.m.ratings[dim]||0;
+      if(rB!==rA) return rB-rA;
+      // tie-break by headroom
+      return (effectiveMem-a.m.vramGB)-(effectiveMem-b.m.vramGB);
+    });
+  }
+
+  sorted.forEach(function(item){
+    var m=item.m, idx=item.origIdx;
+    var headroom=effectiveMem-m.vramGB;
+    var ucDimMap = { coding:'coding', reasoning:'reasoning', fast:'speed', chat:'quality', creative:'quality', rag:'reasoning', multilingual:'quality' };
+    var matchDim = ucDimMap[activeUseCase]||'quality';
+    var isMatch = activeUseCase==='all' || (m.ratings[matchDim]||0) >= 2;
+    var fitClass,fitLabel,fitIcon;
+    if(headroom>=4){ fitClass='fit-great'; fitLabel='Great fit'; fitIcon='ti-check'; }
+    else if(headroom>=1){ fitClass='fit-ok'; fitLabel='Fits — tight'; fitIcon='ti-check'; }
+    else if(headroom>=-2){ fitClass='fit-tight'; fitLabel='Marginal'; fitIcon='ti-alert-triangle'; }
+    else { fitClass='fit-no'; fitLabel="Won't fit"; fitIcon='ti-x'; }
+
+    var kvPer1K=kvCachePerKToken(m.params);
+    var maxCtxK=headroom>0?Math.floor(headroom/kvPer1K):0;
+    var ctxDisplay=maxCtxK<=0?'No headroom':maxCtxK>=32?'32K+':maxCtxK+'K';
+
+    // rating bars HTML
+    var ratingsHtml='<div class="mc-ratings">';
+    ['speed','quality','reasoning','coding'].forEach(function(dim){
+      var val=m.ratings[dim]||0;
+      var isBestDim=(activeUseCase==='coding'&&dim==='coding')||(activeUseCase==='reasoning'&&dim==='reasoning')||(activeUseCase==='fast'&&dim==='speed');
+      var bars='';
+      for(var b=1;b<=3;b++){
+        bars+='<div class="bar'+(b<=val?' on'+(isBestDim?' best':''):'')+'"></div>';
+      }
+      ratingsHtml+='<div class="rating-row"><span style="min-width:60px">'+RATING_LABELS[dim]+'</span><div class="rating-bars">'+bars+'</div></div>';
+    });
+    ratingsHtml+='</div>';
+
+    // tags
+    var tagsHtml='<div class="mc-tags">';
+    m.tags.forEach(function(t){ tagsHtml+='<span class="mc-tag">'+t+'</span>'; });
+    tagsHtml+='</div>';
+
+    var card=document.createElement('div');
+    var wontFit = headroom < -2;
+    var dimmed = (activeUseCase!=='all'&&!isMatch) || wontFit;
+    card.className='model-card'+(isMatch&&activeUseCase!=='all'&&!wontFit?' highlighted':'')+(dimmed?' dimmed':'');
+    card.dataset.idx=idx;
+    card.innerHTML=
+      '<div class="mc-name">'+m.name+'</div>'
+      +'<div class="mc-quant">'+m.quant+'</div>'
+      +tagsHtml
+      +ratingsHtml
+      +'<div class="mc-examples" style="font-size:11px;color:var(--tx3);margin-bottom:6px">'+m.examples+'</div>'
+      +'<span class="mc-fit '+fitClass+'"><i class="ti '+fitIcon+'" style="font-size:12px"></i>'+fitLabel+'</span>'
+      +'<div class="mc-headroom" style="font-size:11px;color:var(--tx3);margin-top:5px">~'+m.vramGB+' GB weights &nbsp;|&nbsp; '
+        +(headroom>0?Math.round(headroom*10)/10+' GB free':headroom>-3?'tight':'over by '+Math.abs(Math.round(headroom*10)/10)+' GB')
+      +'</div>'
+      +'<div class="mc-headroom" style="font-size:11px;color:var(--tx3)">Max ctx ~'+ctxDisplay+'</div>'
+      +'<div class="mc-blurb">'+m.blurb+'</div>'
+      +'<button class="mc-expand" onclick="toggleBlurb(event,this)">&#9660; Why this model</button>'
+      +(wontFit?'<div class="wontfit-msg" style="display:none;margin-top:6px;font-size:11px;color:var(--dtx);background:var(--bg3);border-radius:6px;padding:4px 8px;">Not enough VRAM — add more VRAM or choose a smaller model.</div>':'');
+
+    card.dataset.wontfit = wontFit ? '1' : '0';
+    card.onclick=function(e){
+      if(e.target.classList.contains('mc-expand')) return;
+      if(this.dataset.wontfit==='1'){
+        // flash a message on the card
+        var msg=this.querySelector('.wontfit-msg');
+        if(msg){ msg.style.display='block'; setTimeout(function(){ msg.style.display='none'; },2500); }
+        return;
+      }
+      selectModel(parseInt(this.dataset.idx));
+    };
+    grid.appendChild(card);
+  });
+}
+
+function toggleBlurb(e, btn){
+  e.stopPropagation();
+  var card=btn.closest('.model-card');
+  var expanded=card.classList.toggle('expanded');
+  btn.textContent=expanded?'▲ Hide details':'▼ Why this model';
+}
+
+
+function selectModel(idx){
+  state.model=MODEL_PRESETS[idx];
+  document.querySelectorAll('.model-card').forEach(function(c){
+    c.classList.toggle('selected', parseInt(c.dataset.idx)===idx);
+  });
+  showAppStep();
+}
+
+function selectCustomModel(){
+  var name=document.getElementById('custom-name').value.trim()||'Custom model';
+  var params=parseFloat(document.getElementById('custom-params').value)||7;
+  var quant=document.getElementById('custom-quant').value;
+  var bpw=QUANT_BPW[quant]||0.55;
+  var vramGB=Math.round(params*bpw*10)/10;
+  state.model={ name:name, params:params, quant:quant.toUpperCase(), vramGB:vramGB, examples:'Custom entry', custom:true };
+  document.querySelectorAll('.model-card').forEach(function(c){ c.classList.remove('selected'); });
+  showAppStep();
+}
+
+// ── app step ──────────────────────────────────────────────────────────────────
+var DESKTOP_APPS=[
+  {id:'lmstudio',label:'LM Studio',icon:'ti-brand-open-source'},
+  {id:'ollama',label:'Ollama',icon:'ti-terminal'},
+  {id:'jan',label:'Jan',icon:'ti-robot'},
+  {id:'llamacpp',label:'llama.cpp CLI',icon:'ti-terminal-2'},
+];
+var SERVER_APPS=[
+  {id:'llamasvr',label:'llama.cpp server',icon:'ti-terminal-2'},
+  {id:'ollama',label:'Ollama server',icon:'ti-terminal'},
+  {id:'vllm',label:'vLLM',icon:'ti-rocket'},
+  {id:'tgi',label:'TGI',icon:'ti-brand-python'},
+];
+
+function showAppStep(){
+  var apps=state.mode==='desktop'?DESKTOP_APPS:SERVER_APPS;
+  var bar=document.getElementById('app-bar');
+  bar.innerHTML='';
+  apps.forEach(function(a){
+    var pill=document.createElement('button');
+    pill.className='app-pill'+(state.app===a.id?' active':'');
+    pill.dataset.app=a.id;
+    pill.innerHTML='<i class="ti '+a.icon+'" style="font-size:14px"></i>'+a.label;
+    pill.onclick=function(){
+      state.app=this.dataset.app;
+      document.querySelectorAll('.app-pill').forEach(function(p){ p.classList.toggle('active',p.dataset.app===state.app); });
+    };
+    bar.appendChild(pill);
+  });
+  document.getElementById('app-rec-step').style.display='block';
+  document.getElementById('app-rec-step').scrollIntoView({behavior:'smooth',block:'start'});
+  // if already had recs showing, refresh them
+  if(document.getElementById('rsec').style.display!=='none') gen();
+}
+
+// ── GENERATE ──────────────────────────────────────────────────────────────────
+function gen(){
+  if(!state.model){ alert('Please select a model first.'); return; }
+  if(!state.app){ alert('Please select an app first.'); return; }
+
+  var vram=getEffectiveVram(), ram=getEffectiveRam(), cores=getEffectiveCores();
+  var vendor=getEffectiveVendor(), gpuCount=getGpuCount();
+  var isApple=vendor==='apple', isNv=vendor==='nvidia', isAMD=vendor==='amd', isIntel=vendor==='intel';
+  var cpuOnly=vendor==='cpu'||vendor==='igpu'||vram===0;
+  var multiGpu=gpuCount>1;
+  var isLinux=getServerOs()==='linux'||getServerOs()==='linux-other';
+  var effectiveMem=isApple?ram:cpuOnly?Math.floor(ram*0.55):vram;
+  var m=state.model;
+  var headroom=Math.max(0, effectiveMem-m.vramGB);
+  var kvPer1K=kvCachePerKToken(m.params);
+  var maxCtxK=headroom>0?Math.min(128, Math.floor(headroom/kvPer1K)):2;
+  var maxCtxKq8=headroom>0?Math.min(128, Math.floor(headroom/(kvPer1K*0.5))):2;
+  // recommended context: cap at 32K for desktop, 128K for server
+  var recCtx=Math.max(2, Math.min(state.mode==='desktop'?32:128, maxCtxK));
+  var recCtxLabel=recCtx>=32?'32K':recCtx+'K';
+  var maxCtxLabel=maxCtxK>=32?'32K+':maxCtxK+'K';
+  var maxCtxQ8Label=maxCtxKq8>=32?'32K+':maxCtxKq8+'K';
+
+  var ti=Math.max(4,Math.floor(cores*0.75)), tb=Math.max(2,Math.floor(cores*0.5));
+  var batch=cpuOnly?'256':isApple?'1024':vram>=16?'1024':'512';
+  var kvRec=headroom<4&&!cpuOnly?'q8_0':'f16';
+  var gpuLayers=cpuOnly?'0':'-1';
+  var app=state.app;
+
+  // banner
+  var banner=document.getElementById('rec-banner');
+  banner.innerHTML='<i class="ti ti-check-circle" style="font-size:16px;flex-shrink:0"></i>'
+    +'<span><b>'+m.name+' '+m.quant+'</b> &nbsp;·&nbsp; '+appLabel(app)+' &nbsp;·&nbsp; '
+    +effectiveMem+' GB '+(isApple?'unified':'VRAM')+' &nbsp;·&nbsp; '
+    +(headroom>0?Math.round(headroom*10)/10+' GB headroom':'Tight fit — reduce context if unstable')
+    +'</span>';
+
+  var recs=[];
+
+  // ── GPU LAYERS ──
+  recs.push({tag:'tag-perf',icon:'ti-layers-linked',title:'GPU offload layers',
+    body: gpuBody(cpuOnly,isApple,app,m)
+  });
+
+  // ── CONTEXT LENGTH ──
+  var ctxBody='Based on your '+m.name+' '+m.quant+' using ~'+m.vramGB+' GB of your '+effectiveMem+' GB, you have ~<span class="rv">'+Math.round(headroom*10)/10+' GB</span> headroom for the KV cache.<br>'
+    +'At f16 KV cache: max context ~<span class="rv">'+maxCtxLabel+'</span><br>'
+    +'At q8_0 KV cache: max context ~<span class="rv">'+maxCtxQ8Label+'</span><br>'
+    +'<b>Recommended starting point: <span class="rv">'+recCtxLabel+'</span></b> — increase if stable, reduce if you hit out-of-memory errors.<br>';
+  ctxBody+=appCtx(app, recCtxLabel.replace('K','000').replace('+',''));
+  recs.push({tag:'tag-mem',icon:'ti-brackets',title:'Context length',body:ctxBody});
+
+  // ── KV CACHE ──
+  recs.push({tag:'tag-mem',icon:'ti-math-function',title:'KV cache quantization',
+    body:(kvRec==='f16'
+        ?'You have <span class="rv">'+Math.round(headroom*10)/10+' GB</span> headroom — <span class="rv">f16</span> KV cache is fine. Switch to <span class="rv">q8_0</span> if you want to push context further (doubles available ctx tokens).'
+        :'Headroom is tight at <span class="rv">'+Math.round(headroom*10)/10+' GB</span>. Use <span class="rv">q8_0</span> KV cache — halves KV memory usage with negligible quality impact.')
+      +'<br>'+appKv(app,kvRec)
+  });
+
+  // ── BATCH SIZE ──
+  recs.push({tag:'tag-speed',icon:'ti-refresh',title:'Batch size (prompt processing)',
+    body:'Recommended <span class="rv">'+batch+'</span> for your '+effectiveMem+' GB system. Controls how fast your prompt is ingested — does not affect generation tok/s.<br>'
+      +appBatch(app,batch)
+  });
+
+  // ── CPU THREADS ──
+  recs.push({tag:'tag-speed',icon:'ti-cpu',title:'CPU threads',
+    body:'Recommended <span class="rv">'+ti+'</span> inference / <span class="rv">'+tb+'</span> batch threads (from '+cores+' logical cores). '
+      +(cores>8?'Intel 12th gen+: use P-core count only — E-cores add latency on LLM workloads. ':'')
+      +'<br>'+appThreads(app,ti,tb)
+  });
+
+  // ── FLASH ATTENTION ──
+  if(!cpuOnly){
+    recs.push({tag:'tag-speed',icon:'ti-bolt',title:'Flash attention',
+      body:'Enable flash attention — reduces VRAM usage for long contexts, speeds up attention. No quality change. Works on CUDA, Metal, and Vulkan.<br>'
+        +appFlash(app)
+    });
+  }
+
+  // ── ROPE SCALING ──
+  if(recCtx>16&&!cpuOnly){
+    var ropeCtxNote = 'You are targeting <span class="rv">'+recCtxLabel+'</span> context. If '+m.name+' was natively trained at a shorter context (e.g. 4K or 8K), RoPE scaling extends it — expect some quality degradation at the very end of very long contexts.';
+    recs.push({tag:'tag-mem',icon:'ti-arrows-maximize',title:'RoPE scaling — extended context',
+      lmstudio: ropeCtxNote+'<br>'
+        +'<span class="where">LM Studio:</span> Load tab &rarr; <b>Advanced</b> &rarr; <b>RoPE Frequency Base</b> and <b>RoPE Frequency Scale</b>.<br>'
+        +'Both show a checkbox — <b>leave them unchecked</b> (displays "Auto"). '
+        +'Only check and set a value if the model documentation specifies custom RoPE parameters for extended context. '
+        +'For most models at most context lengths, Auto is correct.',
+      ollama: ropeCtxNote+'<br>'
+        +'<span class="where">Ollama:</span> Modelfile <span class="rv">PARAMETER rope_frequency_base 10000</span> (default). '
+        +'Increase base frequency for longer context extension (e.g. 500000 for very long context models like Llama 3.1).',
+      jan: ropeCtxNote+'<br><span class="where">Jan:</span> Not directly exposed — handled automatically by the llama.cpp backend.',
+      llamacpp: ropeCtxNote+'<br>'
+        +'<span class="where">llama.cpp:</span> <span class="rv">--rope-freq-base 10000</span> (default). '
+        +'Use <span class="rv">--rope-scale</span> to linearly scale context (e.g. <span class="rv">--rope-scale 4</span> for 4× native context).',
+      all: ropeCtxNote+'<br>'
+        +'<span class="where">LM Studio:</span> Rope Frequency Base / Scale — leave at <span class="rv">0</span> (auto)<br>'
+        +'<span class="where">Ollama:</span> Modelfile <span class="rv">PARAMETER rope_frequency_base</span><br>'
+        +'<span class="where">llama.cpp:</span> <span class="rv">--rope-freq-base</span> / <span class="rv">--rope-scale</span>'
+    });
+  }
+
+  // ── MMAP / MLOCK ──
+  var ram2=getEffectiveRam();
+  var mlockNote = ram2>=32
+    ? 'Mlock is safe with '+ram2+' GB RAM for models under ~'+Math.floor(ram2*0.55)+' GB — pins model in RAM, prevents paging.'
+    : 'Leave Mlock off — '+ram2+' GB RAM is too tight to safely pin this model in memory.';
+  recs.push({tag:'tag-mem',icon:'ti-file-symlink',title:'Mmap and mlock',
+    lmstudio: 'Load tab &rarr; <b>Advanced</b> &rarr; <b>Try mmap()</b> toggle: enable (on by default — keep it on). '
+      +'<b>Keep Model in Memory</b> toggle: '+(ram2>=32?'enable — you have '+ram2+' GB RAM, safe for this model.':'leave off — '+ram2+' GB RAM is tight, letting the OS manage paging is safer.')+'<br>'
+      +'Also see <b>Offload KV Cache to GPU Memory</b> — keep this on for best performance.',
+    ollama: 'Mmap is on by default in Ollama. Set <span class="rv">OLLAMA_NOPRUNE=1</span> to keep the model loaded in memory between requests rather than unloading after idle timeout.',
+    jan: 'Handled automatically by the llama.cpp backend — no manual configuration needed.',
+    llamacpp: 'Flags: <span class="rv">--mmap</span> (enable mmap) '+(ram2>=32?'<span class="rv">--mlock</span> (pin in RAM — safe at '+ram2+' GB)':'(skip --mlock at '+ram2+' GB RAM)'),
+    all: 'Mmap: always enable. '+mlockNote+'<br>'
+      +'<span class="where">LM Studio:</span> Model settings &rarr; Advanced &rarr; Use mmap (on) / Use mlock<br>'
+      +'<span class="where">Ollama:</span> Mmap default on; <span class="rv">OLLAMA_NOPRUNE=1</span> keeps model warm<br>'
+      +'<span class="where">Jan:</span> Automatic<br>'
+      +'<span class="where">llama.cpp:</span> <span class="rv">--mmap</span>'+(ram2>=32?' <span class="rv">--mlock</span>':'')
+  });
+
+  // ── STRUCTURED OUTPUT ──
+  recs.push({tag:'tag-quality',icon:'ti-braces',title:'Structured output / JSON mode',
+    lmstudio: 'Inference tab &rarr; <b>Structured Output</b> section &rarr; <b>Structured Output</b> toggle: enable.<br>'
+      +'Once enabled, a schema editor appears where you define the JSON structure you want returned.<br><br>'
+      +'<b>Via API (more control):</b> In your request body add:<br>'
+      +'<span class="rv">"response_format": { "type": "json_object" }</span> — forces valid JSON, any structure.<br>'
+      +'<span class="rv">"response_format": { "type": "json_schema", "json_schema": { "name": "result", "strict": true, "schema": { "type": "object", "properties": { "answer": { "type": "string" } }, "required": ["answer"] } } }</span> — enforces exact fields.<br>'
+      +'Use strict schema mode when you need guaranteed field names and types, e.g. for downstream parsing.',
+    ollama: 'Add <span class="rv">"format": "json"</span> to your API request body:<br>'
+      +'<span class="rv">curl http://localhost:11434/api/generate -d "{ \"model\": \"llama3\", \"format\": \"json\", \"prompt\": \"...\" }"</span><br>'
+      +'Ollama forces JSON but does not validate against a schema — prompt the model to describe the structure you want.',
+    jan: 'In the Jan API request body: <span class="rv">"response_format": { "type": "json_object" }</span><br>'
+      +'Jan delegates to the llama.cpp backend for grammar enforcement.',
+    llamacpp: 'Use <span class="rv">--json-schema &lt;schema&gt;</span> with an inline JSON schema string, or <span class="rv">--grammar-file schema.gbnf</span> for a GBNF grammar file. See the llama.cpp docs for schema format — pass the schema as a single-quoted string on the command line.',
+    all: 'Forces the model to return valid JSON — zero quality loss, just constrains output shape.<br>'
+      +'<span class="where">LM Studio:</span> API body: <span class="rv">"response_format": {"type": "json_object"}</span> or <span class="rv">"json_schema"</span> for strict schema<br>'
+      +'<span class="where">Ollama:</span> API body: <span class="rv">"format": "json"</span><br>'
+      +'<span class="where">Jan:</span> API body: <span class="rv">"response_format": {"type": "json_object"}</span><br>'
+      +'<span class="where">llama.cpp:</span> <span class="rv">--json-schema</span> or <span class="rv">--grammar-file</span>'
+  });
+
+  // ── CONTEXT OVERFLOW ──
+  recs.push({tag:'tag-mem',icon:'ti-overflow',title:'Context overflow handling',
+    lmstudio: 'Inference tab &rarr; <b>Settings</b> &rarr; <b>Context Overflow</b> dropdown. Options:<br>'
+      +'<span class="rv">Stop at Limit</span> — generation stops when context is full. Safe and predictable — good for document processing where losing context is unacceptable.<br>'
+      +'<span class="rv">Rolling Window</span> — oldest tokens are dropped as new ones come in. Conversation continues but the model loses early context — good for long chat sessions.<br>'
+      +'<span class="rv">Truncate Middle</span> — removes tokens from the middle. Preserves the start (system prompt) and the most recent messages.<br>'
+      +'Recommended default: <span class="rv">Rolling Window</span> for chat, <span class="rv">Stop at Limit</span> for document Q&A.',
+    ollama: 'Ollama truncates context automatically when the limit is reached — oldest tokens are dropped. '
+      +'Set <span class="rv">PARAMETER num_ctx</span> in your Modelfile to control the window size.',
+    jan: 'Jan uses the llama.cpp default which stops generation at the context limit. No UI control — manage via context length setting.',
+    llamacpp: 'Default behavior is to stop at the context limit. '
+      +'For rolling window: the serving layer (not llama.cpp itself) must manage context truncation. '
+      +'Use <span class="rv">-c</span> to set the maximum and handle windowing in your application layer.',
+    all: 'What happens when your conversation reaches the context limit:<br>'
+      +'<span class="where">LM Studio:</span> Model settings &rarr; Context Overflow Policy &rarr; Rolling window (recommended for chat)<br>'
+      +'<span class="where">Ollama:</span> Truncates automatically — oldest tokens dropped<br>'
+      +'<span class="where">Jan:</span> Stops at limit — manage context size manually<br>'
+      +'<span class="where">llama.cpp:</span> Stops at limit — handle windowing in your application'
+  });
+
+  // ── TTL / MODEL LOADING (desktop only) ──
+  if(state.mode==='desktop'&&app==='lmstudio'){
+    recs.push({tag:'tag-speed',icon:'ti-clock',title:'Model TTL and auto-loading (LM Studio)',
+      lmstudio:'Load tab &rarr; <b>Advanced</b> &rarr; <b>Keep Model in Memory</b> toggle: enable to keep the model in VRAM between requests rather than unloading after idle.<br>'
+        +'For API use: LM Studio &rarr; top menu &rarr; Developer &rarr; <b>Model TTL</b> — set to <span class="rv">-1</span> for indefinite, or a number of seconds before auto-unload.<br>'
+        +'<b>Load model on request</b> (same Developer menu): loads the model automatically when an API call arrives — useful when switching between models.<br>'
+        +'With '+m.vramGB+' GB in VRAM for '+m.name+', keeping it loaded is fine if this is your primary model.',
+    all:'Load tab &rarr; <b>Advanced</b> &rarr; <b>Keep Model in Memory</b>: on.<br>'
+        +'LM Studio Developer settings &rarr; Model TTL: <span class="rv">-1</span> to keep loaded indefinitely.'
+    });
+  }
+
+  // ── BACKEND ──
+  pushBackendRec(recs,isNv,isAMD,isApple,isIntel,multiGpu,cpuOnly,app,isLinux,gpuCount);
+
+  // server-specific
+  if(state.mode==='server'){
+    var conc=getConcurrency();
+    var kvPerSlot=Math.round(kvPer1K*recCtx*10)/10;
+    var totalKv=Math.round(kvPerSlot*conc*10)/10;
+    var safeSlots=headroom>0?Math.max(1,Math.floor(headroom/Math.max(kvPerSlot,0.5))):1;
+
+    recs.push({tag:'tag-perf',icon:'ti-users',title:'Parallel slots for '+conc+' concurrent users',
+      body:m.name+' '+m.quant+' uses '+m.vramGB+' GB, leaving ~'+Math.round(headroom*10)/10+' GB for KV cache. '
+        +'Each user at '+recCtxLabel+' context needs ~<span class="rv">'+kvPerSlot+' GB</span> of KV VRAM. '
+        +'Estimated safe parallel slots: <span class="rv">'+safeSlots+'</span> (total KV for '+conc+' users: ~'+totalKv+' GB).<br>'
+        +'<span class="where">llama.cpp server:</span> <span class="rv">--parallel '+conc+'</span><br>'
+        +'<span class="where">Ollama:</span> <span class="rv">OLLAMA_NUM_PARALLEL='+conc+'</span><br>'
+        +'<span class="where">vLLM:</span> <span class="rv">--max-num-seqs '+conc+'</span><br>'
+        +'<span class="where">TGI:</span> <span class="rv">--max-concurrent-requests '+conc+'</span>'
+    });
+
+    recs.push({tag:'tag-speed',icon:'ti-stack',title:'Continuous batching',
+      body:'All major server frameworks batch concurrent requests automatically — no manual configuration needed for basic setup.<br>'
+        +'<span class="where">llama.cpp server:</span> Automatic — tune <span class="rv">--batch-size 2048</span><br>'
+        +'<span class="where">Ollama:</span> Automatic<br>'
+        +'<span class="where">vLLM:</span> Automatic with PagedAttention<br>'
+        +'<span class="where">TGI:</span> Automatic — tune <span class="rv">--max-batch-total-tokens</span>'
+    });
+
+    recs.push({tag:'tag-compat',icon:'ti-activity',title:'Health and monitoring endpoints',
+      body:'<span class="where">llama.cpp server:</span> Add <span class="rv">--metrics</span> flag — exposes /metrics (Prometheus) and /health<br>'
+        +'<span class="where">Ollama:</span> <span class="rv">/api/ps</span> shows running models. Add Prometheus sidecar for full metrics.<br>'
+        +'<span class="where">vLLM:</span> /metrics and /health built-in. Watch: gpu_cache_usage_perc, num_running_seqs<br>'
+        +'<span class="where">TGI:</span> /metrics and /health built-in with latency histograms'
+    });
+
+    if(multiGpu){
+      recs.push({tag:'tag-perf',icon:'ti-topology-star-3',title:'Multi-GPU tensor parallelism ('+gpuCount+' GPUs)',
+        body:gpuCount+' GPUs detected. Tensor parallelism splits each model layer across all GPUs simultaneously — NVLink interconnect is ideal, PCIe works but reduces bandwidth.<br>'
+          +'<span class="where">llama.cpp server:</span> <span class="rv">--tensor-split '+Array(gpuCount).fill('1').join(',')+'</span><br>'
+          +'<span class="where">Ollama:</span> Automatic multi-GPU<br>'
+          +'<span class="where">vLLM:</span> <span class="rv">--tensor-parallel-size '+gpuCount+'</span><br>'
+          +'<span class="where">TGI:</span> <span class="rv">--num-shard '+gpuCount+'</span>'
+      });
+    }
+  }
+
+  // render — select body by active app, fall back to .all then .body
+  var list=document.getElementById('rec-list');
+  list.innerHTML='';
+  recs.forEach(function(r){
+    var body = (state.app && state.app!=='all' && r[state.app] !== undefined)
+      ? r[state.app]
+      : (r.all !== undefined ? r.all : (r.body || ''));
+    var d=document.createElement('div'); d.className='rec-card';
+    d.innerHTML='<div class="rec-head"><i class="ti '+r.icon+'" style="font-size:18px;color:var(--tx2)"></i>'
+      +'<span class="rec-title">'+r.title+'</span>'
+      +'<span class="rec-tag '+r.tag+'">'+tagLabel(r.tag)+'</span></div>'
+      +'<div class="rec-body">'+body+'</div>';
+    list.appendChild(d);
+  });
+
+  buildSamplingPresets();
+  document.getElementById('rsec').style.display='block';
+  document.getElementById('rsec').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function tagLabel(t){ return {
+  'tag-perf':'performance','tag-mem':'memory','tag-speed':'speed',
+  'tag-compat':'compatibility','tag-quality':'quality'
+}[t]||t; }
+
+function appLabel(app){ return {
+  lmstudio:'LM Studio',ollama:'Ollama',jan:'Jan',llamacpp:'llama.cpp CLI',
+  llamasvr:'llama.cpp server',vllm:'vLLM',tgi:'TGI'
+}[app]||app; }
+
+// ── per-app body helpers ──────────────────────────────────────────────────────
+function gpuBody(cpuOnly,isApple,app,m){
+  if(cpuOnly) return 'Set GPU layers to <span class="rv">0</span> — CPU-only inference. Expect ~2–8 tok/s for '+m.name+'. Use the smallest quantization that gives acceptable quality.';
+  if(isApple) return 'Set to maximum (all layers). Unified memory — no reason to hold anything back on CPU. LM Studio, Ollama, and Jan all do this automatically on Apple Silicon.';
+  // LM Studio uses a numeric slider, not -1
+  if(app==='lmstudio') return 'Load tab &rarr; <b>Context and Offload</b> &rarr; <b>GPU Offload</b> slider &rarr; drag to maximum. If you get out-of-memory errors, reduce by 4–8 and reload the model until stable.';
+  var base='Set to <span class="rv">-1</span> (auto) — fits as many layers as VRAM allows. Reduce by 4–8 if you hit out-of-memory errors.<br>';
+  var appLines={
+    lmstudio:'<span class="where">LM Studio:</span> Model settings &rarr; GPU Layers &rarr; max',
+    ollama:'<span class="where">Ollama:</span> <span class="rv">OLLAMA_NUM_GPU=999</span> or Modelfile <span class="rv">PARAMETER num_gpu 999</span>',
+    jan:'<span class="where">Jan:</span> Model settings &rarr; GPU Offload &rarr; drag to max',
+    llamacpp:'<span class="where">llama.cpp:</span> <span class="rv">-ngl 999</span>',
+    llamasvr:'<span class="where">llama.cpp server:</span> <span class="rv">-ngl 999</span>',
+    vllm:'<span class="where">vLLM:</span> Automatic — all layers loaded',
+    tgi:'<span class="where">TGI:</span> Automatic — all layers loaded',
+  };
+  return base+(appLines[app]||'');
+}
+
+function appCtx(app,ctx){
+  var n=ctx.replace('K','000').replace('+','');
+  var m={
+    lmstudio:'<span class="where">LM Studio:</span> Load tab &rarr; <b>Context and Offload</b> &rarr; <b>Context Length</b> slider &rarr; <span class="rv">'+ctx+'</span>. The field above the slider shows the model native maximum.',
+    ollama:'<span class="where">Ollama:</span> Modelfile <span class="rv">PARAMETER num_ctx '+n+'</span>',
+    jan:'<span class="where">Jan:</span> Model settings &rarr; Context Window &rarr; <span class="rv">'+ctx+'</span>',
+    llamacpp:'<span class="where">llama.cpp:</span> <span class="rv">-c '+n+'</span>',
+    llamasvr:'<span class="where">llama.cpp server:</span> <span class="rv">-c '+n+'</span>',
+    vllm:'<span class="where">vLLM:</span> <span class="rv">--max-model-len '+n+'</span>',
+    tgi:'<span class="where">TGI:</span> <span class="rv">--max-total-tokens '+n+'</span>',
+  };
+  return m[app]||'';
+}
+
+function appKv(app,kv){
+  var m={
+    lmstudio:'<span class="where">LM Studio:</span> Load tab &rarr; <b>Advanced</b> &rarr; <b>K Cache Quantization Type</b> and <b>V Cache Quantization Type</b> &rarr; check the box and select <span class="rv">'+kv+'</span> for both. Both are marked Experimental.',
+    ollama:'<span class="where">Ollama:</span> Modelfile <span class="rv">PARAMETER kv_cache_type '+kv+'</span>',
+    jan:'<span class="where">Jan:</span> Not exposed in UI — uses defaults',
+    llamacpp:'<span class="where">llama.cpp:</span> <span class="rv">--cache-type-k '+kv+' --cache-type-v '+kv+'</span>',
+    llamasvr:'<span class="where">llama.cpp server:</span> <span class="rv">--cache-type-k '+kv+' --cache-type-v '+kv+'</span>',
+    vllm:'<span class="where">vLLM:</span> <span class="rv">--kv-cache-dtype '+(kv==='q8_0'?'fp8':'auto')+'</span>',
+    tgi:'<span class="where">TGI:</span> Automatic',
+  };
+  return m[app]||'';
+}
+
+function appBatch(app,batch){
+  var m={
+    lmstudio:'<span class="where">LM Studio:</span> Model settings &rarr; Batch Size &rarr; <span class="rv">'+batch+'</span>',
+    ollama:'<span class="where">Ollama:</span> Modelfile <span class="rv">PARAMETER num_batch '+batch+'</span>',
+    jan:'<span class="where">Jan:</span> Not exposed — uses defaults',
+    llamacpp:'<span class="where">llama.cpp:</span> <span class="rv">-b '+batch+'</span>',
+    llamasvr:'<span class="where">llama.cpp server:</span> <span class="rv">--batch-size '+batch+'</span>',
+    vllm:'<span class="where">vLLM:</span> Managed automatically',
+    tgi:'<span class="where">TGI:</span> <span class="rv">--max-batch-prefill-tokens '+batch+'</span>',
+  };
+  return m[app]||'';
+}
+
+function appThreads(app,ti,tb){
+  var lmTi = Math.min(ti, 10); // LM Studio UI caps thread pool at 10
+  var m={
+    lmstudio:'<span class="where">LM Studio:</span> Inference tab &rarr; <b>Settings</b> &rarr; <b>CPU Threads</b> slider &rarr; <span class="rv">'+lmTi+'</span>. LM Studio caps the thread pool at 10 in the UI regardless of core count.',
+    ollama:'<span class="where">Ollama:</span> <span class="rv">OLLAMA_NUM_THREAD='+ti+'</span>',
+    jan:'<span class="where">Jan:</span> Not exposed — uses system defaults',
+    llamacpp:'<span class="where">llama.cpp:</span> <span class="rv">-t '+ti+' -tb '+tb+'</span>',
+    llamasvr:'<span class="where">llama.cpp server:</span> <span class="rv">-t '+ti+' -tb '+tb+'</span>',
+    vllm:'<span class="where">vLLM:</span> Managed automatically',
+    tgi:'<span class="where">TGI:</span> Managed automatically',
+  };
+  return m[app]||'';
+}
+
+function appFlash(app){
+  var m={
+    lmstudio:'<span class="where">LM Studio:</span> Load tab &rarr; <b>Advanced</b> &rarr; <b>Flash Attention</b> toggle &rarr; on.',
+    ollama:'<span class="where">Ollama:</span> Enabled by default on supported hardware',
+    jan:'<span class="where">Jan:</span> Automatic on compatible backends',
+    llamacpp:'<span class="where">llama.cpp:</span> <span class="rv">--flash-attn</span>',
+    llamasvr:'<span class="where">llama.cpp server:</span> <span class="rv">--flash-attn</span>',
+    vllm:'<span class="where">vLLM:</span> Automatic on supported GPUs',
+    tgi:'<span class="where">TGI:</span> <span class="rv">--flash-attention</span>',
+  };
+  return m[app]||'';
+}
+
+function pushBackendRec(recs,isNv,isAMD,isApple,isIntel,multiGpu,cpuOnly,app,isLinux,gpuCount){
+  if(isNv){
+    recs.push({tag:'tag-compat',icon:'ti-brand-nvidia',title:'Confirm CUDA backend — not Vulkan',
+      lmstudio: 'Load tab &rarr; <b>Context and Offload</b> — the GPU name should appear next to the GPU Offload slider. '
+        +'If the slider is greyed out or missing, LM Studio is not detecting your GPU. '
+        +'Check the model load log at the bottom of the screen — it should show your GPU name and layer count. '
+        +'If it shows <span class="rv">Vulkan</span> instead of CUDA, go to lmstudio.ai, re-download, and select the CUDA build during installation. '
+        +(multiGpu?'With '+gpuCount+' GPUs: LM Studio splits layers automatically across detected GPUs — confirm both appear in the load log.':''),
+      ollama: 'Run <span class="rv">ollama ps</span> in a terminal while a model is loaded. '
+        +'The output shows which GPU is active. Ollama auto-selects CUDA on NVIDIA — if it shows CPU, your CUDA drivers may need updating.',
+      jan: 'Settings &rarr; Extensions &rarr; Inference Engine &rarr; confirm the CUDA variant is installed and selected. '
+        +'If you see errors on load, reinstall the CUDA inference engine from the Extensions panel.',
+      llamacpp: 'Run with <span class="rv">--verbose</span> flag and look for "CUDA" in the startup output. '
+        +'If you see "Vulkan" instead, you have the wrong binary — download or compile a CUDA build.',
+      all: 'Vulkan on NVIDIA is 2–4x slower than CUDA. Confirm CUDA is active before tuning anything else.<br>'
+        +'<span class="where">LM Studio:</span> Model load log should say CUDA — if Vulkan, reinstall with CUDA build<br>'
+        +'<span class="where">Ollama:</span> <span class="rv">ollama ps</span> shows active GPU<br>'
+        +'<span class="where">Jan:</span> Settings &rarr; Extensions &rarr; Inference Engine<br>'
+        +'<span class="where">llama.cpp:</span> <span class="rv">--verbose</span> output'
+        +(multiGpu?'<br><span class="where">Multi-GPU:</span> '+gpuCount+' GPUs — layers split automatically. <span class="rv">CUDA_VISIBLE_DEVICES=0</span> to restrict to one.':'')
+    });
+  }
+  if(isAMD){
+    recs.push({tag:'tag-compat',icon:'ti-device-desktop',title:'AMD backend: ROCm or Vulkan',
+      body:(isLinux?'Linux + ROCm on RX 6000/7000 series significantly outperforms Vulkan.':'Windows uses Vulkan automatically — functional but not optimal.')+'<br>'
+        +'<span class="where">LM Studio:</span> Vulkan automatic on AMD/Windows — verify GPU usage in Task Manager<br>'
+        +'<span class="where">Ollama '+( isLinux?'(Linux)':'')+':</span> '+(isLinux?'ROCm supported natively on RX 6000/7000':'Vulkan automatic')+' <br>'
+        +'<span class="where">llama.cpp:</span> '+(isLinux?'Build with <span class="rv">LLAMA_HIPBLAS=1</span> for ROCm':'Use Vulkan build on Windows')
+    });
+  }
+  if(isApple){
+    recs.push({tag:'tag-compat',icon:'ti-brand-apple',title:'Metal backend',
+      body:'Metal is used automatically on Apple Silicon. Verify you are running the native ARM build.<br>'
+        +'<span class="where">LM Studio:</span> Activity Monitor &rarr; Architecture column = "Apple" (not Intel/Rosetta)<br>'
+        +'<span class="where">Ollama / Jan:</span> Metal automatic on Apple Silicon builds<br>'
+        +'<span class="where">Alternative:</span> <span class="rv">mlx-lm</span> (Apple MLX framework) is worth benchmarking — sometimes faster than llama.cpp on Apple hardware'
+    });
+  }
+  if(isIntel){
+    recs.push({tag:'tag-compat',icon:'ti-cpu',title:'Intel Arc backend',
+      body:'LM Studio, Ollama, and Jan use Vulkan for Arc automatically. SYCL (oneAPI) is faster but requires manual compilation.<br>'
+        +'<span class="where">All apps:</span> Keep Intel Arc drivers current from Intel&#39;s site<br>'
+        +'<span class="where">llama.cpp:</span> Compile with <span class="rv">LLAMA_SYCL=1</span> + Intel oneAPI for best performance'
+    });
+  }
+}
+
+// ── sampling presets ──────────────────────────────────────────────────────────
+var SAMPLING_PRESETS=[
+  { id:'chat',    label:'Chat / General',
+    temp:0.7, topp:0.9, minp:0.05, topk:40, repeat:1.1,  seed:-1, maxTok:-1,
+    note:'Balanced for everyday conversation. Coherent and slightly varied.' },
+  { id:'coding',  label:'Coding',
+    temp:0.15,topp:0.95,minp:0.05, topk:20, repeat:1.1,  seed:-1, maxTok:-1,
+    note:'Low temperature keeps code precise and deterministic. Min-P filters noise.' },
+  { id:'creative',label:'Creative writing',
+    temp:1.0, topp:0.92,minp:0.0,  topk:0,  repeat:1.15, seed:-1, maxTok:-1,
+    note:'Higher temperature and repeat penalty encourages varied, imaginative output.' },
+  { id:'factual', label:'Factual / RAG',
+    temp:0.1, topp:0.95,minp:0.0,  topk:20, repeat:1.05, seed:-1, maxTok:1024,
+    note:'Near-deterministic. Best for summarization, Q&A over documents, and retrieval tasks.' },
+  { id:'structured',label:'Structured output',
+    temp:0.05,topp:1.0, minp:0.0,  topk:1,  repeat:1.0,  seed:-1, maxTok:2048,
+    note:'Effectively greedy. Use with JSON grammar mode for reliable schema-constrained output.' },
+];
+
+var activePreset='chat';
+
+function buildSamplingPresets(){
+  var bar=document.getElementById('preset-bar');
+  bar.innerHTML='';
+  SAMPLING_PRESETS.forEach(function(p){
+    var btn=document.createElement('button');
+    btn.className='preset-pill'+(p.id===activePreset?' active':'');
+    btn.dataset.id=p.id;
+    btn.textContent=p.label;
+    btn.onclick=function(){
+      activePreset=this.dataset.id;
+      document.querySelectorAll('.preset-pill').forEach(function(b){ b.classList.toggle('active',b.dataset.id===activePreset); });
+      renderSamplingPreset();
+    };
+    bar.appendChild(btn);
+  });
+  renderSamplingPreset();
+}
+
+function renderSamplingPreset(){
+  var p=SAMPLING_PRESETS.find(function(x){ return x.id===activePreset; });
+  if(!p) return;
+  var app=state.app||'lmstudio';
+
+  var vals=[
+    {lb:'Temperature',vl:p.temp,note:'Randomness (0=deterministic)'},
+    {lb:'Top-P',vl:p.topp,note:'Nucleus sampling cutoff'},
+    {lb:'Min-P',vl:p.minp,note:'Min probability threshold'},
+    {lb:'Top-K',vl:p.topk===0?'off':p.topk,note:'Candidate token limit'},
+    {lb:'Repeat penalty',vl:p.repeat,note:'Discourages repetition'},
+    {lb:'Seed',vl:p.seed===-1?'random':p.seed,note:'-1 = random each time'},
+    {lb:'Max tokens',vl:p.maxTok===-1?'unlimited':p.maxTok,note:'Hard output length cap'},
+  ];
+
+  var grid=document.getElementById('sampling-grid');
+  grid.innerHTML='';
+  vals.forEach(function(v){
+    var d=document.createElement('div'); d.className='sample-card';
+    d.innerHTML='<div class="lb">'+v.lb+'</div><div class="vl">'+v.vl+'</div><div class="note">'+v.note+'</div>';
+    grid.appendChild(d);
+  });
+
+  var appInstructions={
+    lmstudio:'In LM Studio: open the <b>Chat</b> panel sidebar (right side) to find Temperature, Top-P, Top-K, Min-P, Repeat Penalty, and Seed. Max Tokens is set under the model settings or per-request via the API.',
+    ollama:'In Ollama Modelfile: <span class="rv">PARAMETER temperature '+p.temp+'</span>, <span class="rv">PARAMETER top_p '+p.topp+'</span>, <span class="rv">PARAMETER repeat_penalty '+p.repeat+'</span>. Or set per-request in the API body.',
+    jan:'In Jan: open the model settings panel in the conversation view — Temperature, Top-P, and Max Tokens are exposed. Other parameters via the API request body.',
+    llamacpp:'<span class="rv">--temp '+p.temp+' --top-p '+p.topp+' --top-k '+(p.topk||40)+' --repeat-penalty '+p.repeat+'</span>'+(p.maxTok>0?' <span class="rv">-n '+p.maxTok+'</span>':''),
+    llamasvr:'Same as llama.cpp CLI flags, or set per-request in the OpenAI-compatible API body.',
+    vllm:'Set via the API request body: <span class="rv">temperature</span>, <span class="rv">top_p</span>, <span class="rv">max_tokens</span>. vLLM does not expose repeat penalty — use the model\'s native EOS token handling.',
+    tgi:'Set via the API request body: <span class="rv">temperature</span>, <span class="rv">top_p</span>, <span class="rv">max_new_tokens</span>, <span class="rv">repetition_penalty</span>.',
+  };
+
+  var notes=document.getElementById('sampling-notes');
+  notes.innerHTML='';
+  var noteCard=document.createElement('div'); noteCard.className='rec-card';
+  noteCard.innerHTML='<div class="rec-head"><i class="ti ti-info-circle" style="font-size:18px;color:var(--tx2)"></i>'
+    +'<span class="rec-title">'+p.label+' preset notes</span>'
+    +'<span class="rec-tag tag-quality">quality</span></div>'
+    +'<div class="rec-body">'+p.note+'<br><br>'+(appInstructions[app]||'')+'</div>';
+  notes.appendChild(noteCard);
+}
+
+// ── init ──────────────────────────────────────────────────────────────────────
+// close popups when clicking outside
+document.addEventListener('click', function(e){
+  if(!e.target.closest('[onclick*="togglePopup"]') && !e.target.closest('.popup')){
+    document.querySelectorAll('.popup').forEach(function(p){ p.style.display='none'; });
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Hardware Advisor</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f4f4f2;--bg3:#ededea;--bg4:#e4e4e1;
+  --tx:#1a1a18;--tx2:#5f5e5a;--tx3:#888780;
+  --bd:rgba(0,0,0,0.1);--bd2:rgba(0,0,0,0.2);
+  --rm:8px;--rl:14px;
+  --ibg:#e6f1fb;--itx:#185fa5;--ibd:rgba(24,95,165,0.3);
+  --wbg:#faeeda;--wtx:#854f0b;--wbd:rgba(186,117,23,0.3);
+  --sbg:#eaf3de;--stx:#3b6d11;--sbd:rgba(59,109,17,0.3);
+  --pbg:#f0eeff;--ptx:#5b4fcf;--pbd:rgba(91,79,207,0.3);
+  --dtx:#a32d2d;--dbg:#fce8e8;
+  --fn:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mo:'SF Mono','Cascadia Code','Consolas',monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1e1e1c;--bg2:#272725;--bg3:#303030;--bg4:#3a3a38;
+  --tx:#f0efe8;--tx2:#b4b2a9;--tx3:#888780;
+  --bd:rgba(255,255,255,0.08);--bd2:rgba(255,255,255,0.18);
+  --ibg:#0c3d6b;--itx:#90c4f4;--ibd:rgba(144,196,244,0.3);
+  --wbg:#52300a;--wtx:#fac97a;--wbd:rgba(250,201,122,0.25);
+  --sbg:#1e4209;--stx:#a8d870;--sbd:rgba(168,216,112,0.3);
+  --pbg:#2d2660;--ptx:#b8aaff;--pbd:rgba(184,170,255,0.3);
+  --dtx:#f09595;--dbg:#4a1a1a;
+}}
+body{font-family:var(--fn);background:var(--bg3);color:var(--tx);min-height:100vh;padding:2rem 1rem}
+.wrap{max-width:900px;margin:0 auto}
+h1{font-size:21px;font-weight:600;margin-bottom:3px}
+.sub{font-size:13px;color:var(--tx3);margin-bottom:1.5rem}
+.slabel{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);margin:1.75rem 0 .6rem;display:flex;align-items:center;gap:8px}
+.snum{width:20px;height:20px;border-radius:50%;background:var(--bg4);color:var(--tx2);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.snum.active{background:var(--ibg);color:var(--itx)}
+.snum.done{background:var(--sbg);color:var(--stx)}
+hr.div{border:none;border-top:.5px solid var(--bd);margin:1.5rem 0}
+
+/* goal cards */
+.goal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:1rem}
+.goal-card{background:var(--bg);border:.5px solid var(--bd2);border-radius:var(--rl);padding:1.1rem 1.2rem;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.goal-card:hover{border-color:var(--itx);box-shadow:0 0 0 2px var(--ibd)}
+.goal-card.selected{border-color:var(--itx);box-shadow:0 0 0 2px var(--ibd);background:var(--ibg)}
+.goal-icon{font-size:24px;color:var(--itx);margin-bottom:.5rem}
+.goal-title{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:3px}
+.goal-desc{font-size:12px;color:var(--tx2);line-height:1.5}
+
+/* mode toggle */
+.mode-bar{display:flex;border:.5px solid var(--bd2);border-radius:var(--rl);overflow:hidden;width:fit-content;margin-bottom:1rem}
+.mode-btn{padding:8px 22px;font-size:13px;font-family:var(--fn);background:var(--bg2);color:var(--tx2);border:none;cursor:pointer;transition:all .15s}
+.mode-btn+.mode-btn{border-left:.5px solid var(--bd2)}
+.mode-btn.active{background:var(--ibg);color:var(--itx);font-weight:500}
+
+/* inputs */
+select,input[type=number],input[type=text]{background:var(--bg);color:var(--tx);border:.5px solid var(--bd2);border-radius:var(--rm);padding:7px 10px;font-size:13px;font-family:var(--fn);outline:none}
+select:focus,input:focus{border-color:var(--itx)}
+input[type=number]{width:120px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--tx2);font-weight:500}
+.field-hint{font-size:11px;color:var(--tx3);line-height:1.5}
+.fields-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+
+/* option pills */
+.opt-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.75rem}
+.opt-pill{background:var(--bg2);border:.5px solid var(--bd2);border-radius:20px;padding:6px 16px;font-size:13px;font-family:var(--fn);color:var(--tx2);cursor:pointer;transition:all .15s}
+.opt-pill:hover{background:var(--bg4)}
+.opt-pill.active{background:var(--ibg);color:var(--itx);border-color:var(--ibd);font-weight:500}
+
+/* use case pills */
+.uc-pill{background:var(--bg2);border:.5px solid var(--bd2);border-radius:20px;padding:6px 16px;font-size:13px;font-family:var(--fn);color:var(--tx2);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.uc-pill:hover{background:var(--bg4)}
+.uc-pill.active{background:var(--pbg);color:var(--ptx);border-color:var(--pbd);font-weight:500}
+
+/* buttons */
+.btn{padding:8px 20px;border-radius:var(--rm);font-size:13px;font-family:var(--fn);cursor:pointer;font-weight:500;border:none;transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--ibg);color:var(--itx);border:.5px solid var(--ibd)}
+.btn-ghost{background:var(--bg2);color:var(--tx2);border:.5px solid var(--bd2);display:inline-flex;align-items:center;gap:6px}
+
+/* result tiers */
+.tier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:1.5rem}
+.tier-card{background:var(--bg);border:.5px solid var(--bd2);border-radius:var(--rl);padding:1.1rem 1.2rem;position:relative}
+.tier-card.tier-min{border-top:3px solid var(--wtx)}
+.tier-card.tier-rec{border-top:3px solid var(--itx)}
+.tier-card.tier-ideal{border-top:3px solid var(--stx)}
+.tier-badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem}
+.tier-min .tier-badge{color:var(--wtx)}
+.tier-rec .tier-badge{color:var(--itx)}
+.tier-ideal .tier-badge{color:var(--stx)}
+.tier-headline{font-size:15px;font-weight:600;color:var(--tx);margin-bottom:.4rem}
+.tier-vram{font-size:13px;color:var(--tx2);margin-bottom:.6rem}
+.tier-gpus{margin-bottom:.8rem}
+.tier-gpu-item{font-size:13px;color:var(--tx);padding:3px 0;border-bottom:.5px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
+.tier-gpu-item:last-child{border-bottom:none}
+.gpu-vendor{font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;margin-left:6px;flex-shrink:0}
+.v-nv{background:#76b900;color:#fff}
+.v-amd{background:#e0291d;color:#fff}
+.v-apple{background:#555;color:#fff}
+.tier-perf{background:var(--bg2);border-radius:var(--rm);padding:.5rem .7rem;font-size:12px;color:var(--tx2);margin-bottom:.6rem}
+.tier-perf b{color:var(--tx)}
+.tier-note{font-size:12px;color:var(--tx3);line-height:1.5}
+.tier-models{margin-top:.7rem}
+.tier-model-tag{display:inline-block;background:var(--bg3);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--tx2);margin:2px}
+
+/* multi-gpu section */
+.mgpu-card{background:var(--bg);border:.5px solid var(--bd2);border-radius:var(--rl);padding:1rem 1.2rem;margin-bottom:1rem}
+.mgpu-title{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:.5rem;display:flex;align-items:center;gap:8px}
+.mgpu-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:.4rem}
+.mgpu-stat{font-size:13px;color:var(--tx2)}
+.mgpu-stat b{color:var(--tx)}
+
+/* info cards */
+.info-card{background:var(--bg);border:.5px solid var(--bd);border-radius:var(--rl);padding:.9rem 1.1rem;margin-bottom:10px}
+.info-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.info-title{font-size:14px;font-weight:500;color:var(--tx)}
+.info-tag{font-size:11px;font-weight:500;padding:2px 8px;border-radius:6px;margin-left:auto}
+.tag-hw{background:var(--ibg);color:var(--itx)}
+.tag-sw{background:var(--sbg);color:var(--stx)}
+.tag-perf{background:var(--wbg);color:var(--wtx)}
+.info-body{font-size:13px;color:var(--tx2);line-height:1.75}
+.rv{display:inline-block;background:var(--bg2);border-radius:4px;padding:1px 7px;font-family:var(--mo);font-size:12px;color:var(--tx);margin:0 2px}
+
+/* data source badge */
+.source-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--tx3);background:var(--bg2);border:.5px solid var(--bd);border-radius:20px;padding:3px 10px;margin-bottom:1rem}
+
+/* error */
+.err-box{background:var(--wbg);border:.5px solid var(--wbd);border-radius:var(--rm);padding:.6rem .9rem;font-size:13px;color:var(--wtx);margin-bottom:1rem;line-height:1.6;display:none}
+
+/* help overlay */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.help-panel{background:var(--bg);border-radius:var(--rl);max-width:660px;width:calc(100% - 2rem);max-height:82vh;overflow-y:auto;padding:1.75rem}
+.help-sec{margin-bottom:1.5rem}
+.help-sec h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);margin-bottom:.6rem}
+.term{margin-bottom:.8rem}
+.term-name{font-weight:600;font-size:13px;color:var(--tx)}
+.term-def{font-size:13px;color:var(--tx2);line-height:1.6;margin-top:2px}
+
+#step2,#step3,#rsec{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:.25rem">
+    <div>
+      <h1>LLM Hardware Advisor</h1>
+      <p class="sub">Tells you what hardware to buy based on what you want to run</p>
+    </div>
+    <button class="btn btn-ghost" onclick="openHelp()">
+      <i class="ti ti-help" style="font-size:15px"></i> How this works
+    </button>
+  </div>
+
+  <!-- data source badge -->
+  <div class="source-badge" id="source-badge">
+    <i class="ti ti-database" style="font-size:12px"></i>
+    <span id="source-txt">Using built-in data — connect LM Preview for live model updates</span>
+  </div>
+
+  <!-- STEP 1: goal -->
+  <div class="slabel"><span class="snum active">1</span> What is your goal?</div>
+  <div class="goal-grid">
+    <div class="goal-card" data-goal="specific" onclick="selectGoal('specific')">
+      <div class="goal-icon"><i class="ti ti-cpu"></i></div>
+      <div class="goal-title">Run a specific model</div>
+      <div class="goal-desc">You know which model you want — find out what hardware will run it well</div>
+    </div>
+    <div class="goal-card" data-goal="usecase" onclick="selectGoal('usecase')">
+      <div class="goal-icon"><i class="ti ti-brain"></i></div>
+      <div class="goal-title">Best model for a use case</div>
+      <div class="goal-desc">Tell us what you want to do — we recommend the best model and what it takes to run it</div>
+    </div>
+    <div class="goal-card" data-goal="tier" onclick="selectGoal('tier')">
+      <div class="goal-icon"><i class="ti ti-layers-linked"></i></div>
+      <div class="goal-title">What does a GPU tier unlock?</div>
+      <div class="goal-desc">Explore what entry, mid, high-end, and workstation GPUs can actually run</div>
+    </div>
+  </div>
+
+  <!-- STEP 2: goal-specific inputs -->
+  <div id="step2">
+    <hr class="div">
+
+    <!-- 2A: specific model -->
+    <div id="step2-specific" style="display:none">
+      <div class="slabel"><span class="snum active">2</span> Which model?</div>
+      <div class="fields-row" style="margin-bottom:1rem">
+        <div class="field">
+          <label>Model family</label>
+          <select id="sp-model" onchange="onSpecificModelChange();markDirty();" style="min-width:260px">
+            <option value="">— select a model —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Quantization preference</label>
+          <select id="sp-quant" onchange="markDirty()">
+            <option value="q4_k_m">Q4_K_M — smallest, fast, good quality</option>
+            <option value="q5_k_m">Q5_K_M — balanced</option>
+            <option value="q6_k">Q6_K — near-lossless</option>
+            <option value="q8_0">Q8_0 — best quality, largest</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2B: use case -->
+    <div id="step2-usecase" style="display:none">
+      <div class="slabel"><span class="snum active">2</span> What do you want to do?</div>
+      <div class="opt-bar" id="uc-bar"></div>
+      <div class="slabel" style="margin-top:1rem"><span class="snum active">3</span> Quality bar</div>
+      <div class="opt-bar">
+        <button class="opt-pill active" data-qb="good" onclick="setQualityBar('good',this)">Good — fast responses, capable model</button>
+        <button class="opt-pill" data-qb="best" onclick="setQualityBar('best',this)">Best available — maximum quality, speed secondary</button>
+      </div>
+    </div>
+
+    <!-- 2C: tier explorer -->
+    <div id="step2-tier" style="display:none">
+      <div class="slabel"><span class="snum active">2</span> GPU tier</div>
+      <div class="opt-bar">
+        <button class="opt-pill active" data-tier="entry" onclick="setGpuTier('entry',this)"><i class="ti ti-device-desktop" style="font-size:13px"></i> Entry</button>
+        <button class="opt-pill" data-tier="mid" onclick="setGpuTier('mid',this)"><i class="ti ti-device-desktop" style="font-size:13px"></i> Mid-range</button>
+        <button class="opt-pill" data-tier="high" onclick="setGpuTier('high',this)"><i class="ti ti-device-desktop" style="font-size:13px"></i> High-end</button>
+        <button class="opt-pill" data-tier="workstation" onclick="setGpuTier('workstation',this)"><i class="ti ti-server" style="font-size:13px"></i> Workstation</button>
+        <button class="opt-pill" data-tier="datacenter" onclick="setGpuTier('datacenter',this)"><i class="ti ti-building" style="font-size:13px"></i> Datacenter</button>
+      </div>
+      <div id="tier-desc" style="font-size:13px;color:var(--tx2);margin-bottom:1rem;line-height:1.6"></div>
+    </div>
+
+    <!-- STEP 3: desktop/server + context (shared) -->
+    <div id="step3">
+      <hr class="div">
+      <div class="slabel"><span class="snum active" id="step3-num">3</span> Desktop or server?</div>
+      <div class="mode-bar">
+        <button class="mode-btn active" id="mode-desktop" onclick="setMode('desktop')">
+          <i class="ti ti-device-desktop" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>Desktop / Personal
+        </button>
+        <button class="mode-btn" id="mode-server" onclick="setMode('server')">
+          <i class="ti ti-server" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>Server / Multi-user
+        </button>
+      </div>
+
+      <div class="field" style="margin-bottom:1rem">
+        <label>Context length needed</label>
+        <select id="ctx-need" onchange="markDirty()" style="max-width:480px">
+          <option value="4">Short — up to 4K tokens (typical chat)</option>
+          <option value="16" selected>Medium — up to 16K tokens (documents, long chat)</option>
+          <option value="32">Long — up to 32K tokens (large documents, codebases)</option>
+          <option value="128">Very long — 128K+ tokens (book-length, RAG pipelines)</option>
+        </select>
+      </div>
+      <div id="conc-field" style="display:none;margin-bottom:1.25rem" class="field">
+        <label>Concurrent users</label>
+        <input type="number" id="conc-users" min="1" max="500" placeholder="e.g. 10" oninput="markDirty()">
+        <div class="field-hint">Simultaneous requests at peak load</div>
+      </div>
+
+      <div id="err-box" class="err-box">
+        <i class="ti ti-alert-triangle" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>
+        <span id="err-msg"></span>
+      </div>
+
+      <button class="btn btn-primary" id="gen-btn" onclick="generate()">
+        <i class="ti ti-bolt" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i><span> Get hardware recommendations</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="rsec">
+    <hr class="div">
+    <div id="result-banner" style="background:var(--ibg);border:.5px solid var(--ibd);border-radius:var(--rl);padding:.75rem 1.1rem;margin-bottom:1.25rem;font-size:13px;color:var(--itx);display:flex;gap:10px;align-items:center;flex-wrap:wrap"></div>
+
+    <!-- Single GPU tiers -->
+    <div class="slabel" id="single-gpu-label"><span class="snum done">&#10003;</span> Single GPU options</div>
+    <div class="tier-grid" id="tier-grid"></div>
+
+    <!-- Multi-GPU -->
+    <div id="mgpu-section" style="display:none">
+      <div class="slabel"><span class="snum done">&#10003;</span> Multi-GPU options</div>
+      <div id="mgpu-grid"></div>
+    </div>
+
+    <!-- System requirements -->
+    <div class="slabel"><span class="snum done">&#10003;</span> Full system requirements</div>
+    <div id="sysreq-grid"></div>
+
+    <!-- Additional considerations -->
+    <div class="slabel"><span class="snum done">&#10003;</span> Things to know before buying</div>
+    <div id="notes-grid"></div>
+  </div>
+
+</div>
+
+<!-- help overlay -->
+<div class="overlay" id="helpOverlay" onclick="closeHelpBg(event)">
+  <div class="help-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+      <h2 style="font-size:18px;font-weight:600;margin:0">How this works</h2>
+      <button onclick="closeHelp()" style="background:none;border:none;font-size:24px;color:var(--tx3);cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+    </div>
+
+    <div class="help-sec">
+      <h3>What this tool does</h3>
+      <p style="font-size:13px;color:var(--tx2);line-height:1.7">This tool works backwards from what you want to run. Instead of starting with hardware and asking what fits, you start with your goal — a specific model, a use case, or a GPU tier — and it tells you what to buy. Recommendations come in three tiers: Minimum (it runs, barely), Recommended (good experience), and Ideal (best possible). For servers, multi-GPU configurations are shown alongside single-GPU options.</p>
+    </div>
+
+    <div class="help-sec">
+      <h3>The three paths</h3>
+      <div class="term"><div class="term-name">Run a specific model</div><div class="term-def">You already know which model you want — Llama 3.3 70B, Gemma 4 12B, etc. The tool calculates minimum VRAM for each quantization level and recommends hardware that gives you a good experience at that model size.</div></div>
+      <div class="term"><div class="term-name">Best model for a use case</div><div class="term-def">You know what you want to do — coding assistant, document analysis, creative writing — but not which model. The tool recommends the best current model for that use case and tells you what hardware runs it well.</div></div>
+      <div class="term"><div class="term-name">GPU tier explorer</div><div class="term-def">You want to understand the landscape — what entry-level GPUs can run vs high-end vs datacenter. Each tier shows which GPU families it covers and what models become available.</div></div>
+    </div>
+
+    <div class="help-sec">
+      <h3>Hardware tiers explained</h3>
+      <div class="term"><div class="term-name">Minimum</div><div class="term-def">The model loads and runs. Generation will be slow and context will be limited. Acceptable for occasional use or testing, not for daily productivity.</div></div>
+      <div class="term"><div class="term-name">Recommended</div><div class="term-def">Comfortable generation speed (10+ tok/s), reasonable context length, stable operation. This is the sweet spot for most users.</div></div>
+      <div class="term"><div class="term-name">Ideal</div><div class="term-def">Fast generation, long context, headroom to run higher quantizations. Best experience available for this model size.</div></div>
+    </div>
+
+    <div class="help-sec">
+      <h3>Key terms</h3>
+      <div class="term"><div class="term-name">VRAM</div><div class="term-def">Memory on the graphics card. The model weights must fit here. A 12B Q4_K_M model needs ~7.5 GB just for weights — everything else (context, KV cache) comes from the remaining headroom.</div></div>
+      <div class="term"><div class="term-name">Quantization (Q4, Q6, Q8)</div><div class="term-def">Compression applied to model weights. Q4 = smallest and fastest, Q8 = largest and highest quality. Q4_K_M is the most common sweet spot — roughly half the VRAM of full precision with minimal quality loss.</div></div>
+      <div class="term"><div class="term-name">tok/s (tokens per second)</div><div class="term-def">Generation speed. Under 3 tok/s feels slow. 10–20 tok/s is comfortable. 30+ tok/s feels fast. Speed depends on model size, GPU, and how many layers fit in VRAM.</div></div>
+      <div class="term"><div class="term-name">KV cache</div><div class="term-def">Memory used to store conversation context. Grows as conversations get longer. Longer context = more VRAM consumed beyond the model weights.</div></div>
+      <div class="term"><div class="term-name">Tensor parallelism</div><div class="term-def">A multi-GPU technique that splits model layers across cards. Lets you run models that don't fit on a single GPU. NVLink between cards gives better bandwidth than PCIe.</div></div>
+      <div class="term"><div class="term-name">NVLink</div><div class="term-def">NVIDIA's high-speed interconnect between GPUs. Much faster than PCIe for multi-GPU inference. Available on datacenter cards (A100, H100) and some consumer cards (RTX 3090, 4090 with NVLink bridge).</div></div>
+      <div class="term"><div class="term-name">Unified memory (Apple Silicon)</div><div class="term-def">On Apple Silicon, CPU and GPU share the same memory pool. A 64 GB M4 Max effectively has 64 GB of "VRAM". Bandwidth is lower than discrete GPUs but the large pool enables very large models on consumer hardware.</div></div>
+    </div>
+
+    <div class="help-sec">
+      <h3>About the data</h3>
+      <p style="font-size:13px;color:var(--tx2);line-height:1.7">Recommendations are based on built-in data covering current GPU specifications, model VRAM requirements, and measured performance estimates. When connected to an LM Preview backend with a web-capable model, the tool will fetch current model releases and benchmark data to supplement the built-in information. Built-in data is updated periodically — check the source badge at the top of the page.</p>
+    </div>
+
+    <button class="btn btn-ghost" onclick="closeHelp()" style="margin-top:.5rem">Close</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// DATA LAYER — structured so LLM can override any section
+// ═══════════════════════════════════════════════════════════════════════════════
+var DATA = {
+  source: 'static',
+  lastUpdated: '2025-06',
+
+  // VRAM multipliers per quant (GB per billion params)
+  quantBpw: { q4_k_m:0.55, q5_k_m:0.65, q6_k:0.78, q8_0:1.05, f16:2.1 },
+
+  // KV cache GB per 1K tokens (approximate, scales with param count)
+  kvPer1KToken: function(params) { return Math.max(0.05, params * 0.007); },
+
+  // MODEL LIBRARY
+  models: [
+    { id:'1-3b',   name:'1–3B models',   params:2,   examples:'Gemma 3 2B, Phi-4 mini, SmolLM2',         bestFor:['chat','fast','edge'],           qualityTier:'basic'  },
+    { id:'7-9b',   name:'7–9B models',   params:8,   examples:'Llama 3.1 8B, Mistral 7B, Gemma 3 9B',    bestFor:['chat','coding','balanced'],      qualityTier:'good'   },
+    { id:'12-14b', name:'12–14B models', params:13,  examples:'Gemma 4 12B, Phi-4 14B, Qwen2.5 14B',     bestFor:['coding','reasoning','chat'],     qualityTier:'great'  },
+    { id:'27-32b', name:'27–32B models', params:30,  examples:'Gemma 3 27B, Qwen2.5 32B, Mistral Small', bestFor:['coding','reasoning','multilingual'], qualityTier:'excellent' },
+    { id:'70-72b', name:'70–72B models', params:70,  examples:'Llama 3.3 70B, Qwen2.5 72B',              bestFor:['reasoning','coding','quality'],  qualityTier:'best'   },
+    { id:'mixtral',name:'Mixtral 8x7B',  params:47,  examples:'Mixtral 8x7B (MoE)',                       bestFor:['chat','reasoning'],              qualityTier:'great'  },
+  ],
+
+  // USE CASE → recommended model
+  useCaseModels: {
+    chat:         { good:'7-9b',   best:'12-14b', note:'Llama 3.1 8B and Gemma 3 9B are excellent everyday chat models. Step up to 12–14B for noticeably better reasoning and nuance.' },
+    coding:       { good:'12-14b', best:'27-32b', note:'Qwen2.5 14B and Phi-4 14B are top coding models at the 12–14B tier. Qwen2.5 32B is among the best coding models on any local hardware.' },
+    reasoning:    { good:'12-14b', best:'70-72b', note:'Phi-4 14B punches above its weight for reasoning. For complex multi-step analysis, 70B is significantly better.' },
+    creative:     { good:'7-9b',   best:'27-32b', note:'7–9B models handle creative writing well. Larger models produce more varied and nuanced long-form content.' },
+    rag:          { good:'12-14b', best:'27-32b', note:'12–14B models are reliable for document Q&A and summarization. Longer context needs push toward 27–32B.' },
+    multilingual: { good:'12-14b', best:'27-32b', note:'Gemma 3 27B has strong multilingual capability. Qwen2.5 models also have excellent multilingual support.' },
+    fast:         { good:'1-3b',   best:'7-9b',   note:'1–3B models respond almost instantly on any hardware. 7–9B at Q4_K_M is the best balance of speed and capability.' },
+  },
+
+  // GPU DATABASE — each entry has single and multi-gpu info
+  gpus: [
+    // ── ENTRY ────────────────────────────────────────────────────────────────
+    { id:'rtx4060',    name:'RTX 4060',       vendor:'nvidia', vram:8,   tier:'entry',       toksPer7B:18,  toksPer13B:9,   toksPer30B:0,  toksPer70B:0,  nvlink:false, notes:'Entry NVIDIA for LLM. 8 GB limits you to 7–9B models. Best for learning and light use.' },
+    { id:'rtx4060ti8', name:'RTX 4060 Ti 8GB',vendor:'nvidia', vram:8,   tier:'entry',       toksPer7B:22,  toksPer13B:10,  toksPer30B:0,  toksPer70B:0,  nvlink:false, notes:'Slightly faster than 4060 at same VRAM. Same model size ceiling.' },
+    { id:'rtx4060ti16',name:'RTX 4060 Ti 16GB',vendor:'nvidia',vram:16,  tier:'mid',         toksPer7B:24,  toksPer13B:14,  toksPer30B:5,  toksPer70B:0,  nvlink:false, notes:'16 GB version unlocks 12–14B models comfortably. Best value 16 GB card.' },
+    { id:'rx7600',     name:'RX 7600',         vendor:'amd',   vram:8,   tier:'entry',       toksPer7B:14,  toksPer13B:7,   toksPer30B:0,  toksPer70B:0,  nvlink:false, notes:'AMD entry option. 8 GB limits model size. Vulkan backend on Windows.' },
+    { id:'rx7700xt',   name:'RX 7700 XT',      vendor:'amd',   vram:12,  tier:'entry',       toksPer7B:17,  toksPer13B:10,  toksPer30B:0,  toksPer70B:0,  nvlink:false, notes:'12 GB AMD at entry price. Handles 12–14B Q4_K_M tightly.' },
+
+    // ── MID ──────────────────────────────────────────────────────────────────
+    { id:'rtx4070',    name:'RTX 4070',        vendor:'nvidia', vram:8,   tier:'mid',         toksPer7B:30,  toksPer13B:15,  toksPer30B:0,  toksPer70B:0,  nvlink:false, notes:'Fast but only 8 GB. Great speed for 7–9B, too tight for larger models.' },
+    { id:'rtx4070s',   name:'RTX 4070 Super',  vendor:'nvidia', vram:12,  tier:'mid',         toksPer7B:35,  toksPer13B:20,  toksPer30B:0,  toksPer70B:0,  nvlink:false, notes:'12 GB, excellent throughput. Handles 12–14B Q4_K_M well.' },
+    { id:'rtx4070ti',  name:'RTX 4070 Ti / Super',vendor:'nvidia',vram:16,tier:'mid',         toksPer7B:40,  toksPer13B:24,  toksPer30B:8,  toksPer70B:0,  nvlink:false, notes:'16 GB sweet spot. Comfortably runs 12–14B at any quant. 27–32B Q4_K_M is tight.' },
+    { id:'rtx3090',    name:'RTX 3090 / 3090 Ti',vendor:'nvidia',vram:24, tier:'mid',         toksPer7B:30,  toksPer13B:20,  toksPer30B:12, toksPer70B:0,  nvlink:true,  notes:'24 GB on a previous-gen card. Excellent for 27–32B Q4_K_M. NVLink capable for dual-GPU.' },
+    { id:'rx7800xt',   name:'RX 7800 XT',       vendor:'amd',   vram:16,  tier:'mid',         toksPer7B:25,  toksPer13B:15,  toksPer30B:5,  toksPer70B:0,  nvlink:false, notes:'16 GB AMD mid-range. Good ROCm support on Linux. Vulkan on Windows.' },
+    { id:'rx7900xt',   name:'RX 7900 XT',        vendor:'amd',   vram:20,  tier:'mid',         toksPer7B:28,  toksPer13B:18,  toksPer30B:8,  toksPer70B:0,  nvlink:false, notes:'20 GB AMD — rare tier that fits 27–32B Q4_K_M.' },
+
+    // ── HIGH-END ──────────────────────────────────────────────────────────────
+    { id:'rtx4080s',   name:'RTX 4080 / 4080 Super',vendor:'nvidia',vram:16,tier:'high',      toksPer7B:48,  toksPer13B:30,  toksPer30B:10, toksPer70B:0,  nvlink:false, notes:'Very fast but only 16 GB. Excellent for 7–14B, tight for 27B.' },
+    { id:'rtx4090',    name:'RTX 4090',            vendor:'nvidia', vram:24,  tier:'high',      toksPer7B:60,  toksPer13B:40,  toksPer30B:18, toksPer70B:0,  nvlink:true,  notes:'Fastest consumer GPU. 24 GB handles up to 27–32B Q4_K_M. NVLink bridge available for dual-4090 (48 GB total).' },
+    { id:'rx7900xtx',  name:'RX 7900 XTX',          vendor:'amd',   vram:24,  tier:'high',      toksPer7B:35,  toksPer13B:24,  toksPer30B:12, toksPer70B:0,  nvlink:false, notes:'24 GB AMD flagship. Strong Linux/ROCm performance. Slower than 4090 but comparable VRAM.' },
+    { id:'m3max',      name:'M3 Max (48 GB)',        vendor:'apple', vram:48,  tier:'high',      toksPer7B:40,  toksPer13B:28,  toksPer30B:16, toksPer70B:6,  nvlink:false, notes:'Unified memory means 48 GB available to GPU. Runs 70B Q4_K_M at low speed. Excellent efficiency.' },
+    { id:'m4max',      name:'M4 Max (64 GB)',        vendor:'apple', vram:64,  tier:'high',      toksPer7B:50,  toksPer13B:35,  toksPer30B:20, toksPer70B:10, nvlink:false, notes:'Best consumer Apple Silicon for LLMs. 70B Q4_K_M fits with headroom for context.' },
+
+    // ── WORKSTATION ───────────────────────────────────────────────────────────
+    { id:'rtxa5000',   name:'RTX A5000',            vendor:'nvidia', vram:24,  tier:'workstation',toksPer7B:30, toksPer13B:20,  toksPer30B:12, toksPer70B:0,  nvlink:true,  notes:'Workstation card with ECC memory. NVLink capable. Good for dual-24 GB configs (48 GB total).' },
+    { id:'rtxa6000',   name:'RTX A6000 / A6000 Ada',vendor:'nvidia', vram:48,  tier:'workstation',toksPer7B:35, toksPer13B:25,  toksPer30B:18, toksPer70B:8,  nvlink:true,  notes:'48 GB workstation card. Runs 70B Q4_K_M alone. NVLink for 96 GB dual config.' },
+    { id:'m4ultra',    name:'M4 Ultra (192 GB)',     vendor:'apple', vram:192, tier:'workstation',toksPer7B:60, toksPer13B:45,  toksPer30B:30, toksPer70B:20, nvlink:false, notes:'Largest unified memory available. Runs any current open model including 70B Q8.' },
+
+    // ── DATACENTER ────────────────────────────────────────────────────────────
+    { id:'a100-40',    name:'A100 40 GB',            vendor:'nvidia', vram:40,  tier:'datacenter',toksPer7B:80, toksPer13B:55,  toksPer30B:35, toksPer70B:15, nvlink:true,  notes:'Workhorse datacenter GPU. NVLink for multi-GPU. Excellent for small-to-medium server deployments.' },
+    { id:'a100-80',    name:'A100 80 GB',             vendor:'nvidia', vram:80,  tier:'datacenter',toksPer7B:90, toksPer13B:65,  toksPer30B:45, toksPer70B:30, nvlink:true,  notes:'80 GB fits 70B Q4_K_M with good headroom. Standard for production LLM serving.' },
+    { id:'h100',       name:'H100 SXM / PCIe',        vendor:'nvidia', vram:80,  tier:'datacenter',toksPer7B:130,toksPer13B:95,  toksPer30B:65, toksPer70B:45, nvlink:true,  notes:'Fastest available for LLM inference. ~2x A100 throughput. NVLink for 8-GPU configs.' },
+    { id:'mi300x',     name:'AMD MI300X',              vendor:'amd',   vram:192, tier:'datacenter',toksPer7B:100,toksPer13B:75,  toksPer30B:55, toksPer70B:38, nvlink:false, notes:'192 GB HBM3. Runs any model on a single card. AMD ROCm ecosystem. Strong vLLM support.' },
+  ],
+
+  // USE CASE DATA
+  useCases: [
+    { id:'chat',        label:'Chat / General',       icon:'ti-message-circle', desc:'Everyday conversation, Q&A, general assistance' },
+    { id:'coding',      label:'Coding assistant',     icon:'ti-code',           desc:'Code generation, debugging, code review' },
+    { id:'reasoning',   label:'Reasoning / Analysis', icon:'ti-brain',          desc:'Complex problem solving, multi-step analysis, math' },
+    { id:'creative',    label:'Creative writing',      icon:'ti-writing',        desc:'Stories, scripts, long-form content generation' },
+    { id:'rag',         label:'RAG / Documents',       icon:'ti-file-search',    desc:'Document Q&A, summarization, knowledge retrieval' },
+    { id:'multilingual',label:'Multilingual',          icon:'ti-world',          desc:'Non-English or multi-language tasks' },
+    { id:'fast',        label:'Speed priority',        icon:'ti-bolt',           desc:'Fastest possible responses, low-latency applications' },
+  ],
+
+  // GPU TIER DESCRIPTORS
+  gpuTiers: {
+    entry:      { label:'Entry',       vramRange:'6–12 GB',   desc:'Consumer cards under the mid-range price threshold. Limited to 7–9B models at Q4_K_M. Good for learning, testing, and light personal use. Not suitable for 13B+ models or server workloads.' },
+    mid:        { label:'Mid-range',   vramRange:'12–24 GB',  desc:'The most popular tier for local LLM enthusiasts. 16 GB unlocks comfortable 12–14B use. 24 GB handles up to 27–32B Q4_K_M. Covers most everyday use cases well.' },
+    high:       { label:'High-end',    vramRange:'16–64 GB',  desc:'Top consumer and prosumer cards. RTX 4090 at 24 GB is the fastest consumer option. Apple M-series with large unified memory pools can reach 48–64 GB effectively. 70B models become accessible.' },
+    workstation:{ label:'Workstation', vramRange:'24–192 GB', desc:'Professional cards with larger VRAM and ECC memory. NVLink allows multi-card configs. 70B models at good quality. Suitable for small server deployments and power users.' },
+    datacenter: { label:'Datacenter',  vramRange:'40–192 GB', desc:'Enterprise-grade inference hardware. A100 and H100 are production standards. MI300X offers 192 GB on a single card. High throughput, NVLink, built for multi-user server deployments.' },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════════
+var state = {
+  goal: null,         // 'specific' | 'usecase' | 'tier'
+  mode: 'desktop',
+  specificModel: null,
+  specificQuant: 'q4_k_m',
+  useCase: null,
+  qualityBar: 'good',
+  gpuTier: 'entry',
+  ctxK: 16,
+  concUsers: 5,
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELP
+// ═══════════════════════════════════════════════════════════════════════════════
+function openHelp()  { document.getElementById('helpOverlay').classList.add('open'); }
+function closeHelp() { document.getElementById('helpOverlay').classList.remove('open'); }
+function closeHelpBg(e) { if(e.target===document.getElementById('helpOverlay')) closeHelp(); }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GOAL SELECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+function selectGoal(goal) {
+  state.goal = goal;
+  document.querySelectorAll('.goal-card').forEach(function(c){
+    c.classList.toggle('selected', c.dataset.goal === goal);
+  });
+  document.getElementById('step2-specific').style.display = goal==='specific' ? 'block' : 'none';
+  document.getElementById('step2-usecase').style.display  = goal==='usecase'  ? 'block' : 'none';
+  document.getElementById('step2-tier').style.display     = goal==='tier'     ? 'block' : 'none';
+  document.getElementById('step2').style.display = 'block';
+  document.getElementById('step3').style.display = 'block';
+  document.getElementById('rsec').style.display  = 'none';
+
+  // number step 3 correctly
+  var stepNum = goal==='usecase' ? '4' : '3';
+  document.getElementById('step3-num').textContent = stepNum;
+
+  if(goal==='specific') buildModelDropdown();
+  if(goal==='usecase')  buildUcBar();
+  if(goal==='tier')     { setGpuTier(state.gpuTier, document.querySelector('[data-tier="'+state.gpuTier+'"]')); }
+
+  markDirty();
+  document.getElementById('step2').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function buildModelDropdown() {
+  var sel = document.getElementById('sp-model');
+  sel.innerHTML = '<option value="">— select a model —</option>';
+  DATA.models.forEach(function(m){
+    var opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.name + ' — ' + m.examples.split(',')[0].trim() + ' etc.';
+    sel.appendChild(opt);
+  });
+}
+
+function onSpecificModelChange() {
+  state.specificModel = document.getElementById('sp-model').value || null;
+}
+
+function buildUcBar() {
+  var bar = document.getElementById('uc-bar');
+  bar.innerHTML = '';
+  DATA.useCases.forEach(function(uc){
+    var btn = document.createElement('button');
+    btn.className = 'uc-pill' + (state.useCase===uc.id ? ' active' : '');
+    btn.dataset.uc = uc.id;
+    btn.innerHTML = '<i class="ti '+uc.icon+'" style="font-size:13px"></i>'+uc.label;
+    btn.title = uc.desc;
+    btn.onclick = function(){
+      state.useCase = this.dataset.uc;
+      document.querySelectorAll('.uc-pill').forEach(function(p){ p.classList.toggle('active', p.dataset.uc===state.useCase); });
+      markDirty();
+    };
+    bar.appendChild(btn);
+  });
+}
+
+function setQualityBar(qb, el) {
+  state.qualityBar = qb;
+  document.querySelectorAll('[data-qb]').forEach(function(b){ b.classList.toggle('active', b.dataset.qb===qb); });
+  markDirty();
+}
+
+function setGpuTier(tier, el) {
+  state.gpuTier = tier;
+  document.querySelectorAll('[data-tier]').forEach(function(b){ b.classList.toggle('active', b.dataset.tier===tier); });
+  var td = DATA.gpuTiers[tier];
+  if(td) document.getElementById('tier-desc').innerHTML =
+    '<b>'+td.label+' — '+td.vramRange+'</b><br>'+td.desc;
+  var serverOnly = tier==='workstation' || tier==='datacenter';
+  var desktopBtn = document.getElementById('mode-desktop');
+  if(serverOnly) {
+    setMode('server');
+    desktopBtn.disabled = true;
+    desktopBtn.style.opacity = '0.35';
+    desktopBtn.style.cursor = 'not-allowed';
+    desktopBtn.title = 'Workstation and datacenter hardware is for server / multi-user deployments only';
+  } else {
+    desktopBtn.disabled = false;
+    desktopBtn.style.opacity = '';
+    desktopBtn.style.cursor = '';
+    desktopBtn.title = '';
+  }
+  markDirty();
+}
+
+function setMode(m) {
+  state.mode = m;
+  document.getElementById('mode-desktop').classList.toggle('active', m==='desktop');
+  document.getElementById('mode-server').classList.toggle('active', m==='server');
+  document.getElementById('conc-field').style.display = m==='server' ? 'block' : 'none';
+  markDirty();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VALIDATION
+// ═══════════════════════════════════════════════════════════════════════════════
+function markDirty() {
+  // hide results whenever inputs change so user knows to re-generate
+  document.getElementById('rsec').style.display='none';
+  var btn = document.getElementById('gen-btn');
+  if(btn) {
+    btn.style.background='var(--wbg)';
+    btn.style.color='var(--wtx)';
+    btn.style.borderColor='var(--wbd)';
+    btn.querySelector('span').textContent=' Settings changed — click to regenerate';
+  }
+}
+function markClean() {
+  var btn = document.getElementById('gen-btn');
+  if(btn) {
+    btn.style.background='';
+    btn.style.color='';
+    btn.style.borderColor='';
+    btn.querySelector('span').textContent=' Get hardware recommendations';
+  }
+}
+
+function showErr(msg) {
+  var box = document.getElementById('err-box');
+  document.getElementById('err-msg').innerHTML = msg;
+  box.style.display = 'block';
+}
+function clearErr() { document.getElementById('err-box').style.display = 'none'; }
+
+function validate() {
+  if(!state.goal){ showErr('Please select a goal above.'); return false; }
+  if(state.goal==='specific'){
+    state.specificModel = document.getElementById('sp-model').value || null;
+    state.specificQuant = document.getElementById('sp-quant').value;
+    if(!state.specificModel){ showErr('Please select a model.'); return false; }
+  }
+  if(state.goal==='usecase' && !state.useCase){ showErr('Please select a use case.'); return false; }
+  state.ctxK = parseInt(document.getElementById('ctx-need').value) || 16;
+  if(state.mode==='server'){
+    var conc = parseInt(document.getElementById('conc-users').value);
+    if(isNaN(conc)||conc<1){ showErr('Please enter a valid number of concurrent users.'); return false; }
+    if(conc>10000){ showErr('Concurrent users of '+conc.toLocaleString()+' is not realistic for a local LLM server. Please enter a realistic value (typically 1–500).'); return false; }
+    // Reality check: largest single GPU is 192 GB. KV cache per slot at chosen context must be feasible.
+    // Use a rough check: if even the largest GPU can't fit 1 slot of the model + KV, warn immediately.
+    state.concUsers = conc;
+  }
+  clearErr();
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VRAM MATH
+// ═══════════════════════════════════════════════════════════════════════════════
+function modelVramGB(params, quant) {
+  return Math.round(params * (DATA.quantBpw[quant]||0.55) * 10) / 10;
+}
+
+function kvVramGB(params, ctxK) {
+  return Math.round(DATA.kvPer1KToken(params) * ctxK * 10) / 10;
+}
+
+function totalVramNeeded(params, quant, ctxK, slots) {
+  slots = slots || 1;
+  return modelVramGB(params, quant) + kvVramGB(params, ctxK) * slots;
+}
+
+function gpuFitsModel(gpu, params, quant, ctxK, slots) {
+  return gpu.vram >= totalVramNeeded(params, quant, ctxK, slots||1);
+}
+
+function expectedToks(gpu, params) {
+  if(params<=3)  return gpu.toksPer7B * 1.4;
+  if(params<=9)  return gpu.toksPer7B;
+  if(params<=15) return gpu.toksPer13B;
+  if(params<=50) return gpu.toksPer30B;
+  return gpu.toksPer70B;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GENERATE
+// ═══════════════════════════════════════════════════════════════════════════════
+function generate() {
+  if(!validate()) return;
+  markClean();
+
+  var params, quant, modelName, modelExamples, modelNote;
+  var slots = state.mode==='server' ? state.concUsers : 1;
+
+  if(state.goal==='specific'){
+    var m = DATA.models.find(function(x){ return x.id===state.specificModel; });
+    params = m.params; quant = state.specificQuant;
+    modelName = m.name; modelExamples = m.examples; modelNote = '';
+  } else if(state.goal==='usecase'){
+    var ucm = DATA.useCaseModels[state.useCase];
+    var mid = ucm[state.qualityBar];
+    var m = DATA.models.find(function(x){ return x.id===mid; });
+    params = m.params; quant = 'q4_k_m'; // default quant for use case path
+    modelName = m.name; modelExamples = m.examples; modelNote = ucm.note;
+  } else {
+    // tier explorer — validate concurrency for server mode
+    if(state.mode==='server'){
+      var conc = parseInt(document.getElementById('conc-users').value);
+      if(isNaN(conc)||conc<1){ showErr('Please enter a valid number of concurrent users.'); return false; }
+      if(conc>10000){ showErr('Concurrent users of '+conc.toLocaleString()+' is not realistic. Please enter a realistic value.'); return false; }
+      state.concUsers = conc;
+    }
+    renderTierExplorer();
+    return;
+  }
+
+  var wVram  = modelVramGB(params, quant);
+  var kvVram = kvVramGB(params, state.ctxK);
+  var isServer = state.mode==='server';
+
+  // VRAM tiers — all include model weights + KV cache overhead
+  // Minimum:  model fits + 1 concurrent slot (just runs)
+  // Recommended: model + enough slots for stated concurrency at ~50% + 20% overhead buffer
+  // Ideal:    model + full stated concurrency + 30% overhead buffer
+  var minSlots  = 1;
+  var recSlots  = isServer ? Math.max(1, Math.ceil(slots * 0.5)) : 1;
+  var idealSlots= isServer ? slots : 1;
+
+  var totalMin   = wVram + kvVram * minSlots;
+  var totalRec   = wVram + kvVram * recSlots  * 1.2; // 20% overhead for app + OS
+  var totalIdeal = wVram + kvVram * idealSlots * 1.2;
+
+  // sanity check: is even the minimum feasible on any GPU in our database?
+  var maxGpuVram = Math.max.apply(null, DATA.gpus.map(function(g){ return g.vram; }));
+  if(totalMin > maxGpuVram * 8) {
+    // even 8 high-end GPUs can't handle this — show a clear error
+    var minGB = Math.ceil(totalMin);
+    showErr(
+      'This configuration requires ~<b>'+minGB.toLocaleString()+' GB</b> of VRAM just for the minimum single-user slot '
+      +'('+wVram+' GB model + '+Math.ceil(kvVram)+' GB KV cache at '+state.ctxK+'K context).'
+      +(isServer?' For '+state.concUsers+' concurrent users the full requirement is ~<b>'+Math.ceil(totalIdeal).toLocaleString()+' GB</b> — far beyond any available hardware.':'')
+      +'<br><br>Try: reducing context length, reducing concurrent users, or choosing a smaller model.'
+    );
+    return;
+  }
+
+  // For server mode, restrict to server-appropriate hardware tiers
+  var serverTiers = ['workstation','datacenter'];
+  var consumerTiers = ['entry','mid','high'];
+  function gpuSuitable(g) {
+    if(!isServer) return true; // desktop: all GPUs valid
+    // server: only workstation/datacenter, PLUS high-end consumer with 24+ GB that are NVLink capable
+    // (e.g. RTX 4090, 3090 are legitimately used in small server configs)
+    if(serverTiers.indexOf(g.tier) >= 0) return true;
+    if(g.tier === 'high' && g.vram >= 24) return true;
+    return false;
+  }
+
+  var minGpus   = DATA.gpus.filter(function(g){ return gpuSuitable(g) && g.vram >= totalMin   && expectedToks(g,params) > 0; });
+  var recGpus   = DATA.gpus.filter(function(g){ return gpuSuitable(g) && g.vram >= totalRec   && expectedToks(g,params) >= 5; });
+  var idealGpus = DATA.gpus.filter(function(g){ return gpuSuitable(g) && g.vram >= totalIdeal && expectedToks(g,params) >= 10; });
+
+  // deduplicate and pick best per vendor per tier
+  function topPerVendor(gpuList, n) {
+    n = n || 3;
+    var seen = {}, result = [];
+    gpuList.forEach(function(g){
+      if(!seen[g.vendor]) { seen[g.vendor]=0; }
+      if(seen[g.vendor]<2) { result.push(g); seen[g.vendor]++; }
+    });
+    return result.slice(0,n);
+  }
+
+  var minTop   = topPerVendor(minGpus);
+  var recTop   = topPerVendor(recGpus);
+  var idealTop = topPerVendor(idealGpus);
+
+  // banner
+  var banner = document.getElementById('result-banner');
+  banner.innerHTML = '<i class="ti ti-check-circle" style="font-size:16px;flex-shrink:0"></i>'
+    +'<span><b>'+modelName+'</b> ('+quant.toUpperCase()+') &nbsp;·&nbsp; '
+    +state.ctxK+'K context &nbsp;·&nbsp; '
+    +(isServer?state.concUsers+' concurrent users':'Desktop / personal')
+    +'<br><span style="font-size:12px;opacity:.8">'
+    +'Model weights: ~'+wVram+' GB &nbsp;|&nbsp; '
+    +'KV cache per slot: ~'+kvVram+' GB &nbsp;|&nbsp; '
+    +(isServer
+      ?'Full concurrency ('+idealSlots+' slots) needs: ~'+Math.ceil(totalIdeal)+' GB &nbsp;|&nbsp; Minimum (1 slot): ~'+Math.ceil(totalMin)+' GB'
+      :'Total VRAM needed: ~'+Math.ceil(totalMin)+' GB')
+    +'</span></span>';
+
+  // render tier cards
+  renderTierCards(minTop, recTop, idealTop, params, quant, wVram, kvVram, totalMin, totalRec, totalIdeal, slots, minSlots, recSlots, idealSlots, isServer);
+
+  // multi-gpu section (server or when model needs it)
+  if(state.mode==='server' || wVram > 24) {
+    renderMultiGpu(params, quant, wVram, kvVram, slots);
+  } else {
+    document.getElementById('mgpu-section').style.display='none';
+  }
+
+  // system requirements
+  renderSysReq(params, quant, wVram, kvVram, slots);
+
+  // notes
+  renderNotes(params, quant, state.ctxK, slots, modelNote);
+
+  document.getElementById('rsec').style.display='block';
+  document.getElementById('rsec').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RENDER: TIER CARDS
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderTierCards(minTop, recTop, idealTop, params, quant, wVram, kvVram, totalMin, totalRec, totalIdeal, slots, minSlots, recSlots, idealSlots, isServer) {
+  var grid = document.getElementById('tier-grid');
+  grid.innerHTML = '';
+  document.getElementById('single-gpu-label').style.display = 'flex';
+
+  var concWarn = (isServer && slots > 1)
+    ? '<div style="margin-top:6px;font-size:11px;color:var(--wtx);background:var(--wbg);border-radius:4px;padding:4px 7px;">'
+      +'<i class="ti ti-alert-triangle" style="font-size:11px;vertical-align:-1px"></i> '
+      +'Supports 1 concurrent user only — you requested '+slots+'. See Recommended and Ideal tiers for full concurrency.</div>'
+    : '';
+  var recWarn = (isServer && recSlots < slots)
+    ? '<div style="margin-top:6px;font-size:11px;color:var(--wtx);background:var(--wbg);border-radius:4px;padding:4px 7px;">'
+      +'<i class="ti ti-alert-triangle" style="font-size:11px;vertical-align:-1px"></i> '
+      +'Supports ~'+recSlots+' concurrent users — you requested '+slots+'. See Ideal tier for full concurrency.</div>'
+    : '';
+
+  var tiers = [
+    { cls:'tier-min',   badge:'Minimum',     gpus:minTop,   total:totalMin,
+      label:'Runs — 1 concurrent user',
+      perfNote:'~2–8 tok/s &nbsp;|&nbsp; '+minSlots+' concurrent slot',
+      warn: concWarn },
+    { cls:'tier-rec',   badge:'Recommended', gpus:recTop,   total:totalRec,
+      label:'Good experience',
+      perfNote:'~10–25 tok/s &nbsp;|&nbsp; ~'+recSlots+' concurrent slot'+(recSlots>1?'s':'')+' at '+state.ctxK+'K ctx',
+      warn: recWarn },
+    { cls:'tier-ideal', badge:'Ideal',       gpus:idealTop, total:totalIdeal,
+      label:'Full concurrency — '+idealSlots+' concurrent user'+(idealSlots>1?'s':''),
+      perfNote:'~25–60+ tok/s &nbsp;|&nbsp; '+idealSlots+' concurrent slot'+(idealSlots>1?'s':'')+' at '+state.ctxK+'K ctx',
+      warn: '' },
+  ];
+
+  tiers.forEach(function(t){
+    var card = document.createElement('div');
+    card.className = 'tier-card '+t.cls;
+    var gpuRows = '';
+    if(t.gpus.length===0){
+      var needed = Math.ceil(t.total);
+      gpuRows = '<div style="font-size:13px;color:var(--dtx);padding:6px 0">'
+        +'No single GPU provides the ~'+needed.toLocaleString()+' GB VRAM needed for this tier.'
+        +(needed > 200 ? ' This requires multi-GPU or datacenter configurations.' : ' See multi-GPU options below.')
+        +'</div>';
+    } else {
+      t.gpus.forEach(function(g){
+        var toks = Math.round(expectedToks(g,params));
+        var vcls = g.vendor==='nvidia'?'v-nv':g.vendor==='amd'?'v-amd':'v-apple';
+        var vlbl = g.vendor==='nvidia'?'NVIDIA':g.vendor==='amd'?'AMD':'Apple';
+        gpuRows += '<div class="tier-gpu-item">'
+          +g.name
+          +'<span><span class="gpu-vendor '+vcls+'">'+vlbl+'</span>'
+          +(toks>0?'<span style="font-size:11px;color:var(--tx3);margin-left:6px">~'+toks+' tok/s</span>':'')
+          +'</span></div>';
+      });
+    }
+    card.innerHTML =
+      '<div class="tier-badge">'+t.badge+'</div>'
+      +'<div class="tier-headline">'+t.label+'</div>'
+      +'<div class="tier-vram">Needs ~<b>'+Math.ceil(t.total)+' GB</b> VRAM</div>'
+      +'<div class="tier-gpus">'+gpuRows+'</div>'
+      +'<div class="tier-perf">'+t.perfNote+'</div>'
+      +(t.warn||'');
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RENDER: MULTI-GPU
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderMultiGpu(params, quant, wVram, kvVram, slots) {
+  var sec  = document.getElementById('mgpu-section');
+  var grid = document.getElementById('mgpu-grid');
+  grid.innerHTML = '';
+  sec.style.display = 'block';
+
+  // configs: pairs and quads of NVLink-capable cards
+  var configs = [];
+
+  // find NVLink capable GPUs
+  var nvlinkGpus = DATA.gpus.filter(function(g){ return g.nvlink && g.vendor==='nvidia'; });
+
+  var maxFeasibleVram = 192 * 8; // 8 × MI300X or similar
+  [2,4,8].forEach(function(count){
+    nvlinkGpus.forEach(function(g){
+      var totalVram = g.vram * count;
+      var kvNeeded  = kvVram * slots;
+      var fits      = totalVram >= wVram + kvNeeded;
+      // only show if the config is physically realistic AND at least model fits
+      if(totalVram >= wVram && totalVram <= maxFeasibleVram) {
+        configs.push({ gpu:g, count:count, totalVram:totalVram, kvNeeded:kvNeeded, fits:fits });
+      }
+    });
+  });
+
+  // Apple multi-die
+  DATA.gpus.filter(function(g){ return g.vendor==='apple'&&g.vram>=48; }).forEach(function(g){
+    configs.push({ gpu:g, count:1, totalVram:g.vram, kvNeeded:kvVram*slots, fits:g.vram>=wVram+kvVram*slots, isApple:true });
+  });
+
+  // deduplicate
+  var seen = {}, unique = [];
+  configs.forEach(function(c){
+    var key = c.gpu.id+'x'+c.count;
+    if(!seen[key]){ seen[key]=true; unique.push(c); }
+  });
+  unique.sort(function(a,b){ return a.totalVram-b.totalVram; });
+
+  if(unique.length===0){
+    var kvTotalNeeded = Math.ceil(wVram + kvVram * slots);
+    if(kvTotalNeeded > 192 * 8){
+      sec.style.display='block';
+      grid.innerHTML = '<div class="info-card"><div class="info-body" style="color:var(--dtx)">'
+        +'Serving '+slots+' concurrent users at '+state.ctxK+'K context requires ~<b>'+kvTotalNeeded.toLocaleString()+' GB</b> of VRAM total. '
+        +'This exceeds what any currently available hardware configuration can provide. '
+        +'<br><br>To make this feasible: reduce concurrent users to ~'+Math.floor((192*2 - wVram)/Math.max(kvVram,0.1))
+        +', or reduce context length, or choose a smaller model.'
+        +'</div></div>';
+    } else {
+      sec.style.display='none';
+    }
+    return;
+  }
+
+  unique.slice(0,6).forEach(function(c){
+    var toks = Math.round(expectedToks(c.gpu,params) * (c.count>1?c.count*0.8:1));
+    var vcls = c.gpu.vendor==='nvidia'?'v-nv':c.gpu.vendor==='amd'?'v-amd':'v-apple';
+    var vlbl = c.gpu.vendor==='nvidia'?'NVIDIA':c.gpu.vendor==='amd'?'AMD':'Apple';
+    var interconnect = c.isApple ? 'Unified memory' : (c.count>1 ? 'NVLink recommended' : '');
+    var fitsLabel = c.fits
+      ? '<span style="color:var(--stx);font-weight:500"><i class="ti ti-check" style="font-size:12px"></i> Fits '+state.concUsers+' users</span>'
+      : '<span style="color:var(--wtx);font-weight:500"><i class="ti ti-alert-triangle" style="font-size:12px"></i> Fits model, KV cache may overflow</span>';
+
+    var card = document.createElement('div');
+    card.className = 'mgpu-card';
+    card.innerHTML =
+      '<div class="mgpu-title">'
+        +(c.count>1?c.count+'×':'')+' '+c.gpu.name
+        +'<span class="gpu-vendor '+vcls+'" style="font-size:11px">'+vlbl+'</span>'
+      +'</div>'
+      +'<div class="mgpu-row">'
+        +'<div class="mgpu-stat">Total VRAM: <b>'+c.totalVram+' GB</b></div>'
+        +(interconnect?'<div class="mgpu-stat">Interconnect: <b>'+interconnect+'</b></div>':'')
+        +'<div class="mgpu-stat">~<b>'+toks+' tok/s</b></div>'
+        +fitsLabel
+      +'</div>'
+      +'<div style="font-size:12px;color:var(--tx3);margin-top:4px">'+c.gpu.notes+'</div>';
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RENDER: SYSTEM REQUIREMENTS
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderSysReq(params, quant, wVram, kvVram, slots) {
+  var grid = document.getElementById('sysreq-grid');
+  grid.innerHTML = '';
+  var isServer = state.mode==='server';
+  var ctxK = state.ctxK;
+
+  // ── REALITY CHECK ─────────────────────────────────────────────────────────────
+  // Before showing specs, assess whether this configuration is realistic.
+  // Thresholds based on real available hardware (as of mid-2025):
+  //   Max single server VRAM: ~8 × 80 GB H100 = 640 GB (NVLink)
+  //   Max practical single server VRAM: ~8 × 192 GB MI300X = 1536 GB (extreme)
+  //   Max practical single server CPU cores: 256 (dual-socket EPYC/Xeon)
+  //   Max practical single server RAM: ~12 TB (quad-socket Xeon)
+  //   LLM serving CPU rule: frameworks use async I/O — ~1 core per 10-20 concurrent users
+  //     is realistic for scheduling overhead. Not 2-4 cores per user.
+
+  var totalKvNeeded = kvVram * slots;
+  var totalVramNeeded = wVram + totalKvNeeded;
+  var maxSingleServerVram = 640;  // 8× H100 80GB NVLink
+  var maxSingleServerCores = 256; // dual-socket EPYC 9754
+  var maxSingleServerRam = 6144;  // 6 TB — extreme but purchasable
+
+  // CPU: async frameworks need ~1 core per 10-20 concurrent users for I/O + scheduling
+  // Plus base overhead for the framework itself (~8-16 cores)
+  var baseCpuCores = 16;
+  var coresPerUserRatio = 20; // 1 core per 20 users (async model)
+  var neededCores = baseCpuCores + Math.ceil(slots / coresPerUserRatio);
+  var neededCoresRounded = neededCores <= 16 ? 16
+    : neededCores <= 32  ? 32
+    : neededCores <= 48  ? 48
+    : neededCores <= 64  ? 64
+    : neededCores <= 96  ? 96
+    : neededCores <= 128 ? 128
+    : neededCores <= 192 ? 192
+    : neededCores <= 256 ? 256
+    : neededCores;
+  var coresRealistic = neededCoresRounded <= maxSingleServerCores;
+
+  // RAM: OS base + framework (~32 GB) + per-user buffers (async = much less than dedicated threads)
+  // ~128 MB per concurrent slot for request state + output buffers in async frameworks
+  var ramPerUserMB = ctxK >= 32 ? 256 : 128;
+  var neededRamGB  = 32 + Math.ceil(slots * ramPerUserMB / 1024);
+  function snapServerRam(gb) {
+    var levels = [64,128,192,256,384,512,768,1024,1536,2048,3072,4096,6144];
+    for(var i=0;i<levels.length;i++) { if(levels[i]>=gb) return levels[i]; }
+    return Math.ceil(gb/512)*512;
+  }
+  var minRamGB  = snapServerRam(Math.max(64,  neededRamGB));
+  var recRamGB  = snapServerRam(Math.max(128, neededRamGB * 1.5));
+  var idealRamGB= snapServerRam(Math.max(256, neededRamGB * 2));
+  var ramRealistic = idealRamGB <= maxSingleServerRam;
+
+  // VRAM: already checked in generate() but re-assess for sysreq context
+  var vramRealistic = totalVramNeeded <= maxSingleServerVram;
+
+  // ── RENDER REALITY ASSESSMENT ─────────────────────────────────────────────────
+  if(isServer && (!vramRealistic || !coresRealistic || !ramRealistic)) {
+    var issues = [];
+    if(!vramRealistic) issues.push(
+      '<b>VRAM:</b> '+slots+' users × '+kvVram.toFixed(1)+' GB KV cache + '+wVram+' GB model = '
+      +totalVramNeeded.toFixed(0)+' GB needed. '
+      +'Maximum available on a single server (8× H100 NVLink) is ~640 GB. '
+      +'This requires either reducing concurrency, reducing context length, or distributing across multiple servers.'
+    );
+    if(!coresRealistic) issues.push(
+      '<b>CPU:</b> '+neededCoresRounded+' cores needed exceeds the practical single-server limit of 256 cores (dual-socket EPYC). '
+      +'At this scale, distribute load across multiple inference nodes behind a load balancer.'
+    );
+
+    var issueHtml = issues.map(function(i){
+      return '<div style="margin-bottom:.5rem;padding:.5rem .7rem;background:var(--dbg);border-radius:6px;font-size:13px;color:var(--dtx)">'+i+'</div>';
+    }).join('');
+
+    // What would make it realistic?
+    var maxRealisticSlots = Math.floor((maxSingleServerVram - wVram) / Math.max(kvVram, 0.1));
+    var suggestion = maxRealisticSlots > 0
+      ? 'To serve this model on a single server, reduce concurrent users to <b>'+maxRealisticSlots+'</b> or less at '+ctxK+'K context, '
+        +'or reduce context to <b>'+(ctxK>=32?16:8)+'K</b> tokens which would allow approximately <b>'
+        +Math.floor((maxSingleServerVram - wVram) / Math.max(kvVramGB(params, ctxK>=32?16:8), 0.1))
+        +' concurrent users</b> on a single server.'
+      : 'This model is too large for any single server at this context length. Consider a smaller model or split across multiple servers.';
+
+    var assessCard = document.createElement('div');
+    assessCard.className = 'info-card';
+    assessCard.style.borderLeft = '3px solid var(--dtx)';
+    assessCard.innerHTML = '<div class="info-head">'
+      +'<i class="ti ti-alert-circle" style="font-size:18px;color:var(--dtx)"></i>'
+      +'<span class="info-title" style="color:var(--dtx)">This configuration exceeds single-server limits</span>'
+      +'<span class="info-tag" style="background:var(--dbg);color:var(--dtx)">infeasible</span>'
+      +'</div>'
+      +'<div class="info-body">'+issueHtml
+      +'<div style="margin-top:.5rem;font-size:13px;color:var(--tx2)">'+suggestion+'</div>'
+      +'<div style="margin-top:.75rem;font-size:13px;color:var(--tx2)">'
+      +'<b>Multi-server alternative:</b> distribute across '
+      +Math.ceil(totalVramNeeded/maxSingleServerVram)+' servers, each handling ~'
+      +Math.floor(slots/Math.ceil(totalVramNeeded/maxSingleServerVram))+' concurrent users, '
+      +'behind a load balancer (nginx, HAProxy, or a dedicated LLM gateway like LiteLLM).'
+      +'</div></div>';
+    grid.appendChild(assessCard);
+
+    // still show what a single realistic server looks like
+    var realCard = document.createElement('div');
+    realCard.className = 'info-card';
+    realCard.innerHTML = '<div class="info-head">'
+      +'<i class="ti ti-server" style="font-size:18px;color:var(--tx2)"></i>'
+      +'<span class="info-title">Realistic single-server specs (reduced concurrency)</span>'
+      +'<span class="info-tag tag-hw">hardware</span>'
+      +'</div>'
+      +'<div class="info-body">'
+      +'These are the specs for a single server running this model at a realistic scale '
+      +'('+Math.min(slots, maxRealisticSlots)+' concurrent users at '+ctxK+'K context):<br><br>'
+      +'<span class="rv">RAM:</span> '+snapServerRam(Math.max(128, 32 + Math.ceil(Math.min(slots,maxRealisticSlots)*ramPerUserMB/1024)))+' GB &nbsp;·&nbsp; '
+      +'<span class="rv">CPU:</span> '+(baseCpuCores + Math.ceil(Math.min(slots,maxRealisticSlots)/coresPerUserRatio) <= 32 ? 32 : 64)+' cores &nbsp;·&nbsp; '
+      +'<span class="rv">Network:</span> 10–25 GbE &nbsp;·&nbsp; '
+      +'<span class="rv">Storage:</span> NVMe SSD, RAID recommended'
+      +'</div>';
+    grid.appendChild(realCard);
+    return;
+  }
+
+  // ── NORMAL SPEC RENDER ─────────────────────────────────────────────────────────
+  var minRam_s   = minRamGB+' GB';
+  var recRam_s   = recRamGB+' GB';
+  var idealRam_s = idealRamGB+' GB';
+
+  var minCores_s  = neededCoresRounded <= 32 ? '16–32 cores' : neededCoresRounded+' cores';
+  var recCores_s  = (neededCoresRounded <= 32 ? 32 : neededCoresRounded)+' cores';
+  var idealCores_s= (neededCoresRounded <= 32 ? 64 : Math.min(neededCoresRounded*2, 256))+' cores';
+
+  var ramNote = isServer
+    ? 'LLM serving frameworks use async I/O — RAM usage per user is much lower than thread-per-user models. '
+      +'Each active request needs ~'+(ramPerUserMB>=256?'256 MB':'128 MB')+' for request state and output buffers at '+ctxK+'K context. '
+      +'ECC RAM strongly recommended for production. Servers commonly run 128 GB–2 TB.'
+    : 'System RAM is separate from VRAM. The model runs in VRAM — system RAM handles the OS, app, and other programs.';
+
+  var cpuNote = isServer
+    ? 'Modern LLM serving frameworks (vLLM, TGI, llama.cpp server) use async request handling — '
+      +'you do not need one CPU thread per user. A rule of thumb is 1 core per 20 concurrent users for I/O and scheduling, '
+      +'plus 16 cores of base overhead for the framework. '
+      +'AMD EPYC and Intel Xeon are the standard server CPU families. Dual-socket configs reach 192–256 cores.'
+    : 'CPU handles prompt tokenization and any model layers that do not fit in VRAM. '
+      +'A modern 8–16 core desktop CPU is sufficient for single-user LLM inference.';
+
+  var storageNote = isServer
+    ? 'NVMe SSD recommended for fast model load times. Plan for multiple model versions plus logs. '
+      +'RAID recommended for production. Enterprise NVMe (U.2 / E1.S) offers better sustained throughput than consumer M.2.'
+    : 'NVMe SSD recommended — model load on HDD can take minutes. Plan for multiple models if needed.';
+
+  var powerNote = isServer
+    ? 'LLM inference sustains near-100% GPU utilization continuously. '
+      +'Server PSUs are redundant (N+1 or 2N) and hot-swappable — size for sustained GPU TDP. '
+      +'High-end GPU servers typically require 25–40°C inlet air and high CFM airflow. '
+      +'Liquid cooling is increasingly common for dense GPU deployments.'
+    : 'LLM inference runs the GPU at sustained high utilization. '
+      +(params>=30?'A quality 850W+ PSU is recommended for high-end single-GPU configs.':'A quality PSU rated for your GPU TDP is sufficient.');
+
+  var items = [
+    { icon:'ti-cpu-2',  title:'System RAM', tag:'tag-hw',
+      body:(isServer
+        ?'Min: <span class="rv">'+minRam_s+'</span> &nbsp;·&nbsp; Rec: <span class="rv">'+recRam_s+'</span> &nbsp;·&nbsp; Ideal: <span class="rv">'+idealRam_s+'</span>'
+        :desktopRam(params))+'<br>'+ramNote },
+    { icon:'ti-cpu',    title:'CPU',        tag:'tag-hw',
+      body:(isServer
+        ?'Min: <span class="rv">'+minCores_s+'</span> &nbsp;·&nbsp; Rec: <span class="rv">'+recCores_s+'</span> &nbsp;·&nbsp; Ideal: <span class="rv">'+idealCores_s+'</span>'
+        :desktopCpu(params))+'<br>'+cpuNote },
+    { icon:'ti-device-sd-card', title:'Storage', tag:'tag-hw',
+      body:'Model files: <span class="rv">'+wVram.toFixed(1)+'–'+(wVram*1.8).toFixed(1)+' GB</span><br>'+storageNote },
+    { icon:'ti-wind',   title:'Power and cooling', tag:'tag-hw', body:powerNote },
+  ];
+
+  if(isServer){
+    items.push({ icon:'ti-network', title:'Networking', tag:'tag-hw',
+      body:'Recommended: <span class="rv">'+(slots>200?'25 GbE or 100 GbE':'10 GbE')+'</span> NIC. '
+        +'For high-concurrency deployments, a load balancer (nginx, HAProxy, LiteLLM) in front of multiple inference servers '
+        +'is more scalable than a single large server. '
+        +'InfiniBand is used for inter-GPU communication in multi-node deployments.'
+    });
+    items.push({ icon:'ti-shield-check', title:'Reliability', tag:'tag-hw',
+      body:'ECC RAM, redundant PSUs, RAID storage, and out-of-band management (IPMI / iDRAC / iLO) are standard for production. '
+        +'Plan for GPU failure — a failed GPU in a multi-GPU config can take the inference node offline without failover planning.'
+    });
+  }
+
+  items.forEach(function(item){
+    var card=document.createElement('div'); card.className='info-card';
+    card.innerHTML='<div class="info-head">'
+      +'<i class="ti '+item.icon+'" style="font-size:18px;color:var(--tx2)"></i>'
+      +'<span class="info-title">'+item.title+'</span>'
+      +'<span class="info-tag '+item.tag+'">hardware</span>'
+      +'</div><div class="info-body">'+item.body+'</div>';
+    grid.appendChild(card);
+  });
+}
+
+function desktopRam(params) {
+  if(params<=3)       return 'Min: <span class="rv">16 GB</span> &nbsp;·&nbsp; Rec: <span class="rv">16 GB</span> &nbsp;·&nbsp; Ideal: <span class="rv">32 GB</span>';
+  if(params<=9)       return 'Min: <span class="rv">16 GB</span> &nbsp;·&nbsp; Rec: <span class="rv">32 GB</span> &nbsp;·&nbsp; Ideal: <span class="rv">32 GB</span>';
+  if(params<=15)      return 'Min: <span class="rv">32 GB</span> &nbsp;·&nbsp; Rec: <span class="rv">32 GB</span> &nbsp;·&nbsp; Ideal: <span class="rv">64 GB</span>';
+  if(params<=35)      return 'Min: <span class="rv">32 GB</span> &nbsp;·&nbsp; Rec: <span class="rv">64 GB</span> &nbsp;·&nbsp; Ideal: <span class="rv">128 GB</span>';
+  return 'Min: <span class="rv">64 GB</span> &nbsp;·&nbsp; Rec: <span class="rv">128 GB</span> &nbsp;·&nbsp; Ideal: <span class="rv">256 GB</span>';
+}
+
+function desktopCpu(params) {
+  return 'Min: <span class="rv">8 cores</span> &nbsp;·&nbsp; Rec: <span class="rv">12 cores</span> &nbsp;·&nbsp; Ideal: <span class="rv">16+ cores</span>';
+}
+
+
+function renderNotes(params, quant, ctxK, slots, modelNote) {
+  var grid = document.getElementById('notes-grid');
+  grid.innerHTML = '';
+  var isServer = state.mode==='server';
+  var notes = [];
+
+  if(modelNote){
+    notes.push({ icon:'ti-info-circle', title:'Model selection note', tag:'tag-sw', body:modelNote });
+  }
+
+  notes.push({ icon:'ti-math-function', title:'Quantization tradeoffs',  tag:'tag-sw',
+    body:'<b>Q4_K_M</b> is the most common choice — roughly half the VRAM of full precision with minimal perceptible quality loss. '
+      +'<b>Q6_K</b> is near-lossless at moderate extra cost. <b>Q8_0</b> is effectively identical to full precision. '
+      +'If VRAM is tight, start with Q4_K_M. If VRAM is comfortable, Q6_K gives noticeably better output for complex tasks.'
+  });
+
+  notes.push({ icon:'ti-maximize', title:'Context length and VRAM',  tag:'tag-perf',
+    body:'At '+ctxK+'K context, this model\'s KV cache uses ~'+kvVramGB(params,ctxK)+' GB per conversation slot. '
+      +'If you need longer context, you will need more VRAM headroom beyond the model weights — or reduce context to fit more concurrent users. '
+      +'Flash attention (supported by all major apps) reduces KV cache VRAM by ~15–20% and should always be enabled.'
+  });
+
+  if(isServer){
+    notes.push({ icon:'ti-users', title:'Server: scaling beyond single GPU', tag:'tag-perf',
+      body:'For '+slots+' concurrent users, each needing '+ctxK+'K context, the KV cache alone needs ~'
+        +Math.round(kvVramGB(params,ctxK)*slots*10)/10+' GB beyond model weights. '
+        +'If a single GPU can\'t fit all slots, either reduce context length, reduce concurrency, add a second GPU, or use a framework like vLLM with PagedAttention which manages KV cache more efficiently.'
+    });
+
+    notes.push({ icon:'ti-topology-star-3', title:'Multi-GPU: NVLink vs PCIe', tag:'tag-hw',
+      body:'NVLink provides much higher bandwidth between GPUs than PCIe — important for tensor parallelism where layers are split across cards. '
+        +'RTX 3090 and 4090 support NVLink bridges (sold separately). Datacenter cards (A100, H100) use NVLink natively. '
+        +'PCIe multi-GPU works but inter-GPU communication becomes a bottleneck at scale — acceptable for pipeline parallelism, suboptimal for tensor parallelism.'
+    });
+  }
+
+  notes.push({ icon:'ti-refresh', title:'New models come out frequently', tag:'tag-sw',
+    body:'This data reflects models available as of '+DATA.lastUpdated+'. New releases can significantly change the landscape — a new 14B model may outperform today\'s 27B on your use case. '
+      +'Check Hugging Face Open LLM Leaderboard and LM Studio\'s model catalog for the latest releases before purchasing. '
+      +'When connected to an LM Preview backend with web search, this tool will fetch current model and benchmark data automatically.'
+  });
+
+  notes.forEach(function(n){
+    var card = document.createElement('div');
+    card.className = 'info-card';
+    card.innerHTML = '<div class="info-head">'
+      +'<i class="ti '+n.icon+'" style="font-size:18px;color:var(--tx2)"></i>'
+      +'<span class="info-title">'+n.title+'</span>'
+      +'<span class="info-tag '+n.tag+'">'+n.tag.replace('tag-','')+'</span>'
+      +'</div>'
+      +'<div class="info-body">'+n.body+'</div>';
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TIER EXPLORER (no specific model)
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderTierExplorer() {
+  var concLabel = state.mode==='server' ? ' &nbsp;·&nbsp; '+state.concUsers+' concurrent users' : ' &nbsp;·&nbsp; Desktop / personal';
+  document.getElementById('result-banner').innerHTML =
+    '<i class="ti ti-layers-linked" style="font-size:16px;flex-shrink:0"></i>'
+    +'<span><b>GPU Tier Explorer</b> — '+DATA.gpuTiers[state.gpuTier].label+' tier &nbsp;·&nbsp; '
+    +DATA.gpuTiers[state.gpuTier].vramRange+' &nbsp;·&nbsp; '+state.ctxK+'K context'+concLabel+'</span>';
+
+  var tierGpus = DATA.gpus.filter(function(g){ return g.tier===state.gpuTier; });
+  var grid = document.getElementById('tier-grid');
+  grid.innerHTML = '';
+  document.getElementById('single-gpu-label').style.display = 'flex';
+  document.getElementById('mgpu-section').style.display = 'none';
+
+  // For tier explorer: show each GPU as a card with what models it can run
+  tierGpus.forEach(function(g){
+    var vcls = g.vendor==='nvidia'?'v-nv':g.vendor==='amd'?'v-amd':'v-apple';
+    var vlbl = g.vendor==='nvidia'?'NVIDIA':g.vendor==='amd'?'AMD':'Apple';
+
+    // what models fit at Q4_K_M — for server, must fit model + KV for all concurrent slots
+    var slots = state.mode==='server' ? state.concUsers : 1;
+    var fits = DATA.models.filter(function(m){
+      var needed = modelVramGB(m.params,'q4_k_m') + kvVramGB(m.params,state.ctxK) * slots;
+      return g.vram >= needed;
+    });
+    // also show what fits for 1 slot so user can see headroom
+    var fitsSingle = state.mode==='server' ? DATA.models.filter(function(m){
+      return g.vram >= modelVramGB(m.params,'q4_k_m') + kvVramGB(m.params,state.ctxK);
+    }) : fits;
+
+    var modelTags = fits.map(function(m){
+      return '<span class="tier-model-tag">'+m.name+'</span>';
+    }).join('');
+    var singleOnlyModels = fitsSingle.filter(function(m){
+      return !fits.find(function(f){ return f.id===m.id; });
+    });
+    var singleOnlyTags = singleOnlyModels.map(function(m){
+      return '<span class="tier-model-tag" style="opacity:.5" title="Fits 1 user but not '+state.concUsers+' concurrent users">'+m.name+' (1 user)</span>';
+    }).join('');
+
+    var card = document.createElement('div');
+    card.className = 'tier-card tier-rec'; // use neutral styling
+    card.style.borderTop = '3px solid var(--bd2)';
+    card.innerHTML =
+      '<div class="tier-badge" style="color:var(--tx2)"><span class="gpu-vendor '+vcls+'">'+vlbl+'</span></div>'
+      +'<div class="tier-headline">'+g.name+'</div>'
+      +'<div class="tier-vram">'+g.vram+' GB VRAM</div>'
+      +'<div class="tier-perf">'
+        +'7–9B: ~<b>'+g.toksPer7B+'</b> tok/s &nbsp;|&nbsp; '
+        +'13B: ~<b>'+g.toksPer13B+'</b> tok/s'
+        +(g.toksPer30B>0?' &nbsp;|&nbsp; 30B: ~<b>'+g.toksPer30B+'</b> tok/s':'')
+        +(g.toksPer70B>0?' &nbsp;|&nbsp; 70B: ~<b>'+g.toksPer70B+'</b> tok/s':'')
+      +'</div>'
+      +'<div class="tier-models">'
+        +(state.mode==='server'
+          ?'<b style="font-size:11px;color:var(--tx3)">Fits '+state.concUsers+' concurrent users at Q4_K_M:</b><br>'
+            +(modelTags||'<span style="font-size:12px;color:var(--dtx)">No model fits '+state.concUsers+' concurrent users at '+state.ctxK+'K ctx</span>')
+            +(singleOnlyTags?'<br><b style="font-size:11px;color:var(--tx3);margin-top:4px;display:block">Fits single user only:</b><br>'+singleOnlyTags:'')
+          :'<b style="font-size:11px;color:var(--tx3)">Fits at Q4_K_M:</b><br>'
+            +(modelTags||'<span style="font-size:12px;color:var(--tx3)">Too limited for this context length</span>')
+        )+'</div>'
+      +'<div style="font-size:12px;color:var(--tx3);margin-top:.5rem;line-height:1.5">'+g.notes+'</div>'
+      +(g.nvlink?'<div style="font-size:11px;color:var(--itx);margin-top:4px"><i class="ti ti-topology-star-3" style="font-size:11px"></i> NVLink capable</div>':'');
+    grid.appendChild(card);
+  });
+
+  // use the largest model that fits the tier for sysreq estimates
+  var tierVramMax = { entry:12, mid:24, high:64, workstation:192, datacenter:192 };
+  var tierVram = tierVramMax[state.gpuTier] || 24;
+  // pick a representative model size for the tier
+  var repParams = tierVram >= 80 ? 70 : tierVram >= 40 ? 30 : tierVram >= 20 ? 13 : 8;
+  var repWvram  = Math.round(repParams * 0.55 * 10) / 10;
+  var repKvvram = Math.round(DATA.kvPer1KToken(repParams) * state.ctxK * 10) / 10;
+  var repSlots  = state.mode==='server' ? state.concUsers : 1;
+
+  renderSysReq(repParams, 'q4_k_m', repWvram, repKvvram, repSlots);
+
+  document.getElementById('notes-grid').innerHTML =
+    '<div class="info-card"><div class="info-head"><i class="ti ti-info-circle" style="font-size:18px;color:var(--tx2)"></i>'
+    +'<span class="info-title">Context length affects what fits</span>'
+    +'<span class="info-tag tag-perf">performance</span></div>'
+    +'<div class="info-body">The model fit shown above assumes <b>'+state.ctxK+'K token context</b>. Shorter context = more models fit. '
+    +'A model that shows as too tight may fit fine at 4K context. Adjust the context length selector above and regenerate to see the difference.</div></div>';
+
+  renderNotes(repParams, 'q4_k_m', state.ctxK, repSlots, '');
+
+  document.getElementById('rsec').style.display='block';
+  document.getElementById('rsec').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LM PREVIEW CONNECTION (stub — ready for LLM hookup)
+// ═══════════════════════════════════════════════════════════════════════════════
+var PORTS = [3000,3001,3002,4000,5000,8080,8000];
+
+async function tryConnect() {
+  for(var i=0;i<PORTS.length;i++){
+    try{
+      var r = await fetch('http://localhost:'+PORTS[i]+'/api/sysinfo',{signal:AbortSignal.timeout(1200)});
+      if(r.ok){
+        document.getElementById('source-badge').innerHTML =
+          '<i class="ti ti-plug-connected" style="font-size:12px;color:var(--stx)"></i>'
+          +'<span style="color:var(--stx)">Connected to LM Preview — live data available when LLM is loaded</span>';
+        // Future: call /api/llm-query to fetch current model data
+        // var data = await fetchLLMData(PORTS[i]);
+        // if(data) DATA = mergeData(DATA, data);
+        return;
+      }
+    }catch(_){}
+  }
+  // No connection — static data, already shown
+}
+
+tryConnect();
+</script>
+</body>
+</html>
