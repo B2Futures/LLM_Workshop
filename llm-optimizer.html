@@ -95,6 +95,51 @@ input[type=number]{width:120px}
 .app-pill:hover{background:var(--bg4)}
 .app-pill.active{background:var(--ibg);color:var(--itx);border-color:var(--ibd);font-weight:500}
 
+/* installed model cards */
+.installed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:1rem}
+.inst-card{background:var(--bg);border:.5px solid var(--bd2);border-radius:var(--rl);padding:.9rem 1rem;cursor:pointer;transition:border-color .15s,box-shadow .15s;position:relative}
+.inst-card:hover{border-color:var(--itx);box-shadow:0 0 0 2px var(--ibd)}
+.inst-card.selected{border-color:var(--itx);box-shadow:0 0 0 2px var(--ibd);background:var(--ibg)}
+.inst-card.is-loaded{border-color:var(--stx);box-shadow:0 0 0 1px var(--sbd)}
+.inst-badges{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0 6px}
+.inst-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;display:inline-flex;align-items:center;gap:3px;letter-spacing:.03em}
+.badge-loaded{background:var(--sbg);color:var(--stx)}
+.badge-loading{background:var(--wbg);color:var(--wtx)}
+.badge-vision{background:var(--ibg);color:var(--itx)}
+.badge-reason{background:var(--pbg);color:var(--ptx)}
+.badge-embed{background:var(--bg4);color:var(--tx2)}
+.inst-card.cant-fit{opacity:.45;cursor:not-allowed}
+.inst-name{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:3px;line-height:1.3}
+.inst-meta{font-size:11px;color:var(--tx3);margin-bottom:7px}
+.inst-fit{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;padding:2px 8px;border-radius:6px}
+.inst-headroom{font-size:11px;color:var(--tx3);margin-top:5px}
+.inst-ctx{font-size:11px;color:var(--tx3)}
+
+/* app cards */
+.app-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:1rem}
+.app-card{background:var(--bg);border:.5px solid var(--bd2);border-radius:var(--rl);padding:0;cursor:pointer;transition:border-color .15s,box-shadow .15s;overflow:hidden;display:flex;flex-direction:column}
+.app-card-body{flex:1}
+.app-card:hover{border-color:var(--itx);box-shadow:0 0 0 2px var(--ibd)}
+.app-card.selected{border-color:var(--itx);box-shadow:0 0 0 2px var(--ibd)}
+.app-card-header{display:flex;align-items:flex-start;gap:10px;padding:.9rem 1rem .6rem;color:var(--itx)}
+.app-card:not(.selected) .app-card-header{color:var(--tx2)}
+.app-card-name{font-size:14px;font-weight:600;color:var(--tx)}
+.app-card-tagline{font-size:11px;color:var(--tx3);margin-top:2px;line-height:1.4}
+.app-card-check{margin-left:auto;width:20px;height:20px;border-radius:50%;background:var(--ibg);color:var(--itx);display:none;align-items:center;justify-content:center;flex-shrink:0}
+.app-card.selected .app-card-check{display:flex}
+.app-card-body{display:flex;gap:0;padding:0 1rem .6rem;border-top:.5px solid var(--bd);flex:1}
+.app-pc-col{flex:1;padding:.6rem .4rem 0}
+.app-pc-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem}
+.pros-label{color:var(--stx)}
+.cons-label{color:var(--dtx)}
+.app-pc-list{list-style:none;padding:0;margin:0}
+.app-pc-list li{font-size:11px;color:var(--tx2);line-height:1.5;padding:1px 0;padding-left:12px;position:relative}
+.pros-label~.app-pc-list li::before{content:'✓';position:absolute;left:0;color:var(--stx);font-size:10px}
+.cons-label~.app-pc-list li::before{content:'✗';position:absolute;left:0;color:var(--dtx);font-size:10px}
+.app-card-select-btn{font-size:12px;font-weight:500;text-align:center;padding:.5rem;background:var(--bg2);color:var(--tx2);border-top:.5px solid var(--bd);transition:background .15s}
+.app-card.selected .app-card-select-btn{background:var(--ibg);color:var(--itx)}
+.app-card:hover .app-card-select-btn{background:var(--bg3)}
+
 /* rec cards */
 .rec-list{display:flex;flex-direction:column;gap:10px}
 .rec-card{background:var(--bg);border:.5px solid var(--bd);border-radius:var(--rl);padding:.9rem 1.1rem}
@@ -394,9 +439,23 @@ input[type=number]{width:120px}
   <div id="model-step">
     <hr class="div">
     <div class="step-label"><span class="step-num active" id="sn2">3</span> Select a model</div>
-    <p style="font-size:13px;color:var(--tx2);margin-bottom:.9rem">Click the model you are running. Fit indicators are based on your available VRAM after model weights load.</p>
-    <!-- use-case filter -->
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:.75rem">Click the model you are running. Fit indicators are based on your available VRAM after model weights load.</p>
+
+    <!-- model source selector — second button only shown if LM Studio detected -->
+    <div id="model-source-bar" style="display:flex;gap:8px;margin-bottom:1rem">
+      <button class="btn btn-primary" id="btn-general" onclick="setModelView('general')">
+        <i class="ti ti-layout-grid" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>General models
+      </button>
+      <button class="btn btn-ghost" id="btn-installed" style="display:none" onclick="setModelView('installed')">
+        <i class="ti ti-download" style="font-size:14px;vertical-align:-2px;margin-right:5px"></i>My installed models
+      </button>
+      <span id="lms-status" style="font-size:12px;color:var(--tx3);align-self:center"></span>
+    </div>
+
+    <!-- use-case filter (general mode only) -->
+    <div id="uc-bar-wrap">
     <div class="uc-bar" id="uc-bar"></div>
+    </div>
     <div class="model-grid" id="model-grid"></div>
 
     <!-- custom model entry -->
@@ -469,12 +528,16 @@ input[type=number]{width:120px}
     <div class="help-sec">
       <h3>How to use this tool</h3>
       <p style="font-size:13px;color:var(--tx2);line-height:1.7">
-        <b>1. Choose Desktop or Server mode.</b> Desktop is for running models on your own machine. Server is for planning or optimizing a machine others will access — all fields are manual since your current computer is irrelevant.<br><br>
-        <b>2. Enter your hardware.</b> On desktop, click Detect to pre-fill what the browser can read, then confirm or correct VRAM and RAM manually. On server, enter the target machine specs directly.<br><br>
-        <b>3. Find compatible models.</b> Model cards appear with fit indicators showing what runs well, what&#39;s tight, and what won&#39;t fit. Headroom shown is VRAM remaining after the model loads — that&#39;s what&#39;s available for context (KV cache).<br><br>
-        <b>4. Select a model.</b> Click the card for what you are actually running. If it&#39;s not listed, use the Custom model entry below the cards.<br><br>
-        <b>5. Select your app</b> and click Generate. Recommendations are tuned to that specific model on your hardware in your app — not just generic GPU advice.<br><br>
-        <b>6. Sampling presets</b> appear at the bottom — pick the preset that matches your use case for output quality settings.
+        <b>1. Choose Desktop or Server mode.</b> Desktop is for running a model on your own machine for personal use. Server is for a machine that other people connect to — all hardware fields are manual entry since your current computer specs are irrelevant to the target server.<br><br>
+        <b>2. Enter your hardware.</b> On desktop, click Detect to pre-fill what the browser can read, then confirm or correct VRAM and RAM — both matter significantly for what you can run. On server, enter the target machine specs directly including GPU count and concurrent users expected.<br><br>
+        <b>3. Find compatible models.</b> Click Find Compatible Models. Each model card shows a fit indicator (great / tight / marginal / won&#39;t fit), VRAM used by the weights, remaining headroom for context, and an estimated maximum context length. Use the use-case filter to sort cards by what you want to do — coding, reasoning, chat, etc. — so the best models for your purpose float to the top. Dimmed cards won&#39;t fit in your available VRAM.<br><br>
+        <b>4. Select a model.</b> Two sources are available:<br>
+        &nbsp;&nbsp;• <b>General models</b> — a curated list of common model families with strength ratings and descriptions. Use this if you have not downloaded anything yet or want to explore options.<br>
+        &nbsp;&nbsp;• <b>My installed models</b> — appears automatically if a compatible local server is detected running on your machine. Shows your actual downloaded models with real metadata pulled directly from your local setup. A "Loaded" badge marks whichever model is currently in VRAM.<br>
+        If the model you want is not in either list, use the Custom model entry at the bottom — enter the name, parameter count, and quantization and the tool will calculate VRAM and make recommendations.<br><br>
+        <b>5. Select your app.</b> Each app card shows pros and cons so you can choose if you have not decided yet. Selecting an app tailors every recommendation to that app&#39;s specific settings — exact field names, menu locations, and values to enter.<br><br>
+        <b>6. Generate recommendations.</b> Settings are calculated specifically for your model on your hardware in your chosen app — not generic GPU advice. Every recommendation includes the exact location of the setting in the app UI.<br><br>
+        <b>7. Sampling presets</b> appear below the main recommendations. Pick the preset matching your use case (coding, chat, creative writing, factual, structured output) to get the right temperature, top-p, repeat penalty, and other generation quality settings — with instructions for where to set them in your app.
       </p>
     </div>
 
@@ -537,6 +600,13 @@ var state = {
 };
 
 var PORTS = [3000,3001,3002,4000,5000,8080,8000];
+var LM_STUDIO_PORT = 1234;
+var lmStudio = {
+  detected: false,
+  installedModels: [],  // parsed from /api/v0/models
+  loadedModel: null,    // from /v1/models
+};
+var modelViewMode = 'general'; // 'general' | 'installed';
 
 // ── model presets ─────────────────────────────────────────────────────────────
 // vramGB = realistic Q4_K_M VRAM for weights only (KV cache is extra)
@@ -922,16 +992,30 @@ function showModels(){
       document.getElementById('d-gpu-card').textContent=gpuOpt.text;
   }
 
-  // build use-case filter bar
+  // build use-case filter bar (general mode only)
   buildUcBar(effectiveMem);
 
-  // render cards
-  renderModelCards(effectiveMem);
+  // render cards — respect current modelViewMode
+  if(modelViewMode === 'installed' && lmStudio.detected) {
+    buildInstalledCards(effectiveMem);
+  } else {
+    modelViewMode = 'general'; // reset if installed not available
+    renderModelCards(effectiveMem);
+  }
 
   document.getElementById('model-step').style.display='block';
   document.getElementById('app-rec-step').style.display='none';
   document.getElementById('rsec').style.display='none';
   state.model=null; state.app=null;
+  // reset to general view, re-probe LM Studio
+  modelViewMode='general';
+  var btnG=document.getElementById('btn-general');
+  var btnI=document.getElementById('btn-installed');
+  if(btnG) btnG.className='btn btn-primary';
+  if(btnI) { btnI.className='btn btn-ghost'; }
+  var ucWrap=document.getElementById('uc-bar-wrap');
+  if(ucWrap) ucWrap.style.display='';
+  probeLMStudio();
   document.getElementById('model-step').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -955,6 +1039,7 @@ function buildUcBar(effectiveMem){
 function renderModelCards(effectiveMem){
   var grid=document.getElementById('model-grid');
   grid.innerHTML='';
+  grid.className='model-grid'; // reset in case it was switched to installed-grid
 
   // Map use case to rating dimension
   var UC_DIM = { coding:'coding', reasoning:'reasoning', fast:'speed', chat:'quality', creative:'quality', rag:'reasoning', multilingual:'quality' };
@@ -1069,33 +1154,96 @@ function selectCustomModel(){
 
 // ── app step ──────────────────────────────────────────────────────────────────
 var DESKTOP_APPS=[
-  {id:'lmstudio',label:'LM Studio',icon:'ti-brand-open-source'},
-  {id:'ollama',label:'Ollama',icon:'ti-terminal'},
-  {id:'jan',label:'Jan',icon:'ti-robot'},
-  {id:'llamacpp',label:'llama.cpp CLI',icon:'ti-terminal-2'},
+  { id:'lmstudio', label:'LM Studio', icon:'ti-brand-open-source',
+    tagline:'Best for beginners and everyday desktop use',
+    pros:['Full GUI — no terminal needed','Easy model download and switching','Built-in chat and API server','Active development, frequent updates','Supports CUDA, Metal, Vulkan'],
+    cons:['Less control over advanced settings','CPU thread pool capped at 10 in UI','Not designed for multi-user serving','Some advanced llama.cpp flags not exposed']
+  },
+  { id:'ollama', label:'Ollama', icon:'ti-terminal',
+    tagline:'Best for developers who want a simple local API',
+    pros:['Dead simple setup — one command to run a model','OpenAI-compatible REST API out of the box','Easy model management via CLI','Runs as a background service','Good Docker support'],
+    cons:['Less UI control — configuration is via Modelfile or env vars','Limited exposure of advanced tuning parameters','Chat UI requires a separate frontend (Open WebUI etc.)','Less granular per-model settings than LM Studio']
+  },
+  { id:'jan', label:'Jan', icon:'ti-robot',
+    tagline:'Best for privacy-focused desktop chat',
+    pros:['Fully offline — no telemetry or cloud dependency','Clean desktop chat interface','Extension system for plugins','Model hub built in','Cross-platform'],
+    cons:['Fewer advanced settings than LM Studio','Smaller community and slower update cadence','Some llama.cpp parameters not exposed in UI','Less suitable for API-first workflows']
+  },
+  { id:'llamacpp', label:'llama.cpp CLI', icon:'ti-terminal-2',
+    tagline:'Best for maximum control and performance tuning',
+    pros:['Every parameter exposed — full control','Fastest inference (no abstraction overhead)','Best for benchmarking and testing','Supports all quantization formats','Source of truth — other apps are built on top of it'],
+    cons:['No GUI — command line only','More complex setup','Manual model management','Not suitable for non-technical users','Each run requires manually specifying all flags']
+  },
 ];
 var SERVER_APPS=[
-  {id:'llamasvr',label:'llama.cpp server',icon:'ti-terminal-2'},
-  {id:'ollama',label:'Ollama server',icon:'ti-terminal'},
-  {id:'vllm',label:'vLLM',icon:'ti-rocket'},
-  {id:'tgi',label:'TGI',icon:'ti-brand-python'},
+  { id:'llamasvr', label:'llama.cpp server', icon:'ti-terminal-2',
+    tagline:'Best for lightweight self-hosted API server',
+    pros:['Minimal overhead — very efficient','OpenAI-compatible API','Full parameter control','Works on consumer hardware','Good for small teams or personal API use'],
+    cons:['No built-in monitoring or metrics dashboard','Manual setup and configuration','Limited built-in concurrency management','No production-grade request queuing out of the box']
+  },
+  { id:'ollama', label:'Ollama server', icon:'ti-terminal',
+    tagline:'Best for easy self-hosted API with minimal config',
+    pros:['Simplest server setup available','OpenAI-compatible API','Auto GPU detection','Docker-friendly','Good for small-to-medium deployments'],
+    cons:['Less control over advanced serving parameters','Not optimized for high-throughput multi-user workloads','Limited observability compared to vLLM/TGI','Concurrency tuning is limited']
+  },
+  { id:'vllm', label:'vLLM', icon:'ti-rocket',
+    tagline:'Best for high-throughput production serving',
+    pros:['PagedAttention — best VRAM efficiency for concurrent users','Continuous batching for maximum throughput','OpenAI-compatible API','Prefix caching for shared system prompts','Best choice for high-concurrency production'],
+    cons:['Requires Linux + CUDA (or ROCm on Linux)','More complex setup than Ollama','Not ideal for consumer or Apple Silicon hardware','Requires more VRAM than simpler frameworks','Overkill for small deployments']
+  },
+  { id:'tgi', label:'TGI (Text Generation Inference)', icon:'ti-brand-python',
+    tagline:'Best for enterprise production with built-in monitoring',
+    pros:['Production-hardened by Hugging Face','Built-in Prometheus metrics and health endpoints','Continuous batching','Tensor parallelism support','Best ecosystem integration with HuggingFace models'],
+    cons:['Docker-centric — not easy to run natively','Primarily Linux + CUDA','More opinionated than vLLM','Setup is more involved than Ollama','Can be heavyweight for small deployments']
+  },
 ];
 
 function showAppStep(){
   var apps=state.mode==='desktop'?DESKTOP_APPS:SERVER_APPS;
   var bar=document.getElementById('app-bar');
   bar.innerHTML='';
+
   apps.forEach(function(a){
-    var pill=document.createElement('button');
-    pill.className='app-pill'+(state.app===a.id?' active':'');
-    pill.dataset.app=a.id;
-    pill.innerHTML='<i class="ti '+a.icon+'" style="font-size:14px"></i>'+a.label;
-    pill.onclick=function(){
+    var isSelected = state.app===a.id;
+    var card=document.createElement('div');
+    card.className='app-card'+(isSelected?' selected':'');
+    card.dataset.app=a.id;
+
+    var prosHtml = a.pros.map(function(p){ return '<li>'+p+'</li>'; }).join('');
+    var consHtml = a.cons.map(function(c){ return '<li>'+c+'</li>'; }).join('');
+
+    card.innerHTML=
+      '<div class="app-card-header">'
+        +'<i class="ti '+a.icon+'" style="font-size:18px;flex-shrink:0"></i>'
+        +'<div>'
+          +'<div class="app-card-name">'+a.label+'</div>'
+          +'<div class="app-card-tagline">'+a.tagline+'</div>'
+        +'</div>'
+        +'<div class="app-card-check"><i class="ti ti-check" style="font-size:14px"></i></div>'
+      +'</div>'
+      +'<div class="app-card-body">'
+        +'<div class="app-pc-col">'
+          +'<div class="app-pc-label pros-label">Pros</div>'
+          +'<ul class="app-pc-list">'+prosHtml+'</ul>'
+        +'</div>'
+        +'<div class="app-pc-col">'
+          +'<div class="app-pc-label cons-label">Cons</div>'
+          +'<ul class="app-pc-list">'+consHtml+'</ul>'
+        +'</div>'
+      +'</div>'
+      +'<div class="app-card-select-btn">'+(isSelected?'Selected ✓':'Select this app')+'</div>';
+
+    card.onclick=function(){
       state.app=this.dataset.app;
-      document.querySelectorAll('.app-pill').forEach(function(p){ p.classList.toggle('active',p.dataset.app===state.app); });
+      document.querySelectorAll('.app-card').forEach(function(c){
+        var sel=c.dataset.app===state.app;
+        c.classList.toggle('selected',sel);
+        c.querySelector('.app-card-select-btn').textContent=sel?'Selected ✓':'Select this app';
+      });
     };
-    bar.appendChild(pill);
+    bar.appendChild(card);
   });
+
   document.getElementById('app-rec-step').style.display='block';
   document.getElementById('app-rec-step').scrollIntoView({behavior:'smooth',block:'start'});
   // if already had recs showing, refresh them
@@ -1570,7 +1718,288 @@ function renderSamplingPreset(){
 }
 
 // ── init ──────────────────────────────────────────────────────────────────────
-// close popups when clicking outside
+// ── LM STUDIO DETECTION ─────────────────────────────────────────────────────
+async function probeLMStudio() {
+  try {
+    // Try LM Studio's model list endpoint
+    var r = await fetch('http://localhost:'+LM_STUDIO_PORT+'/api/v0/models', {
+      signal: AbortSignal.timeout(1500)
+    });
+    if (!r.ok) return;
+    var data = await r.json();
+
+    // LM Studio API v0 response shape:
+    // { data: [ { id, object, type, publisher, arch, compatibility_type,
+    //             quantization, state, max_context_length, ... } ] }
+    // Try multiple possible shapes
+    var models = [];
+    if (Array.isArray(data)) {
+      models = data;
+    } else if (data.data && Array.isArray(data.data)) {
+      models = data.data;
+    } else if (data.models && Array.isArray(data.models)) {
+      models = data.models;
+    }
+
+    console.log('[LM Studio] raw response:', JSON.stringify(data).slice(0,500));
+    console.log('[LM Studio] parsed models count:', models.length);
+    if (models.length > 0) console.log('[LM Studio] first model keys:', Object.keys(models[0]));
+
+    if (models.length === 0) {
+      lmStudio.detected = true;
+      showInstalledBtn('Connected — no models downloaded yet');
+      return;
+    }
+    lmStudio.detected = true;
+    lmStudio.installedModels = models;
+
+    // Use state field from /api/v0/models — more accurate than /v1/models
+    // state: 'loaded' = in VRAM, 'not-loaded' = on disk only
+    lmStudio.loadedModels = models
+      .filter(function(m){ return m.state === 'loaded'; })
+      .map(function(m){ return m.id; });
+    if(lmStudio.loadedModels.length > 0) lmStudio.loadedModel = lmStudio.loadedModels[0];
+    console.log('[LM Studio] loaded (state=loaded):', lmStudio.loadedModels);
+
+    showInstalledBtn(models.length + ' model' + (models.length !== 1 ? 's' : '') + ' installed');
+  } catch(_) {
+    // LM Studio not running — stay silent
+  }
+}
+
+function showInstalledBtn(statusTxt) {
+  var btn = document.getElementById('btn-installed');
+  var status = document.getElementById('lms-status');
+  if (btn) btn.style.display = 'inline-flex';
+  if (status) status.textContent = statusTxt;
+}
+
+function setModelView(mode) {
+  modelViewMode = mode;
+  var btnG = document.getElementById('btn-general');
+  var btnI = document.getElementById('btn-installed');
+  var ucWrap = document.getElementById('uc-bar-wrap');
+
+  if (btnG) { btnG.className = mode==='general' ? 'btn btn-primary' : 'btn btn-ghost'; }
+  if (btnI) { btnI.className = mode==='installed' ? 'btn btn-primary' : 'btn btn-ghost'; }
+  if (ucWrap) ucWrap.style.display = mode==='general' ? '' : 'none';
+
+  // Reset grid class when switching modes
+  var grid = document.getElementById('model-grid');
+  if(grid) grid.className = mode==='general' ? 'model-grid' : 'installed-grid';
+
+  var vram = getEffectiveVram(), ram = getEffectiveRam();
+  var vendor = getEffectiveVendor();
+  var isApple = vendor==='apple', cpuOnly = vendor==='cpu'||vendor==='igpu'||vram===0;
+  var effectiveMem = isApple ? ram : cpuOnly ? Math.floor(ram*0.55) : vram;
+
+  if (mode === 'installed') {
+    buildInstalledCards(effectiveMem);
+  } else {
+    renderModelCards(effectiveMem);
+  }
+}
+
+function parseQuant(modelId) {
+  // Extract quant from model id/path string
+  var id = (modelId || '').toUpperCase();
+  if (id.indexOf('Q4_K_M') >= 0) return 'Q4_K_M';
+  if (id.indexOf('Q5_K_M') >= 0) return 'Q5_K_M';
+  if (id.indexOf('Q6_K')   >= 0) return 'Q6_K';
+  if (id.indexOf('Q8_0')   >= 0) return 'Q8_0';
+  if (id.indexOf('Q4_0')   >= 0) return 'Q4_0';
+  if (id.indexOf('F16')    >= 0 || id.indexOf('FP16') >= 0) return 'F16';
+  if (id.indexOf('BF16')   >= 0) return 'BF16';
+  if (id.indexOf('IQ4')    >= 0) return 'IQ4';
+  if (id.indexOf('IQ3')    >= 0) return 'IQ3';
+  return 'Q4_K_M'; // safe default assumption
+}
+
+function parseParams(modelId, meta) {
+  // Try metadata first
+  if (meta && meta.num_params) return meta.num_params / 1e9;
+  // Parse from model name string
+  var id = (modelId || '').toUpperCase();
+  var match = id.match(/(\d+\.?\d*)B/);
+  if (match) return parseFloat(match[1]);
+  // common size keywords
+  if (id.indexOf('70B') >= 0 || id.indexOf('72B') >= 0) return 70;
+  if (id.indexOf('32B') >= 0 || id.indexOf('27B') >= 0) return 30;
+  if (id.indexOf('14B') >= 0 || id.indexOf('13B') >= 0) return 13;
+  if (id.indexOf('12B') >= 0) return 12;
+  if (id.indexOf('9B')  >= 0 || id.indexOf('8B')  >= 0) return 8;
+  if (id.indexOf('7B')  >= 0) return 7;
+  if (id.indexOf('3B')  >= 0) return 3;
+  if (id.indexOf('2B')  >= 0) return 2;
+  if (id.indexOf('1B')  >= 0) return 1;
+  return 7; // fallback
+}
+
+function friendlyModelName(modelId) {
+  // Turn a path like "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF" into something readable
+  var id = modelId || '';
+  // Take last path segment if it's a path
+  var parts = id.split('/');
+  var name = parts[parts.length - 1] || id;
+  // Remove common suffixes
+  name = name.replace(/-GGUF$/i, '').replace(/\.gguf$/i, '');
+  return name;
+}
+
+function buildInstalledCards(effectiveMem) {
+  var grid = document.getElementById('model-grid');
+  if (!grid) { console.error('[buildInstalledCards] model-grid not found!'); return; }
+  grid.innerHTML = '';
+  grid.className = 'installed-grid';
+
+  // Warn if multiple models are loaded simultaneously
+  var loadedModels = (lmStudio.installedModels || []).filter(function(m){ return m.state === 'loaded'; });
+  if (loadedModels.length > 1) {
+    var warn = document.createElement('div');
+    warn.style.cssText = 'grid-column:1/-1;background:var(--wbg);border:.5px solid var(--wbd);border-radius:var(--rm);padding:.7rem 1rem;font-size:13px;color:var(--wtx);margin-bottom:.5rem;line-height:1.6';
+    var loadedNames = loadedModels.map(function(m){ return '<b>'+friendlyModelName(m.name||m.id)+'</b>'; }).join(', ');
+    warn.innerHTML = '<i class="ti ti-alert-triangle" style="font-size:14px;vertical-align:-2px;margin-right:6px"></i>'
+      + loadedNames + ' are all currently in VRAM. '
+      + 'With multiple models loaded, each gets a smaller share of your '+(getEffectiveVram()||'available')+' GB VRAM and the rest spills to RAM — both run slower than either would alone. '
+      + 'For best performance, eject models you are not actively using in LM Studio&#39;s Local Server panel (Developer &rarr; Local Server &rarr; Eject).';
+    grid.appendChild(warn);
+  }
+
+  if (!lmStudio.installedModels || lmStudio.installedModels.length === 0) {
+    grid.innerHTML = '<div style="font-size:13px;color:var(--tx3);grid-column:1/-1;padding:1rem 0">'
+      + 'No models found. Download models in LM Studio first, then return here.</div>';
+    return;
+  }
+
+  lmStudio.installedModels.forEach(function(m, idx) {
+    var modelId = m.id || m.path || m.model_key || '';
+    var displayName = friendlyModelName(m.name || m.id || modelId);
+    var quant = parseQuant(modelId);
+    var params = parseParams(modelId, m);
+    var bpw = QUANT_BPW[quant.toLowerCase()] || QUANT_BPW['q4_k_m'];
+    var vramGB = Math.round(params * bpw * 10) / 10;
+
+    // Use native context from metadata if available
+    var nativeCtx = m.max_context_length || m.context_length || null;
+    var headroom = effectiveMem - vramGB;
+    var kvPer1K = kvCachePerKToken(params);
+    var maxCtxK = headroom > 0 ? Math.min(128, Math.floor(headroom / kvPer1K)) : 0;
+    var ctxDisplay = maxCtxK <= 0 ? 'No headroom' : maxCtxK >= 32 ? '32K+' : maxCtxK + 'K';
+
+    // Use state field directly — most accurate
+    var isLoaded = m.state === 'loaded';
+    var isLoading = m.state === 'loading';
+    var wontFit = headroom < -2;
+
+    var fitClass, fitLabel, fitIcon;
+    if (headroom >= 4)   { fitClass='fit-great'; fitLabel='Great fit'; fitIcon='ti-check'; }
+    else if (headroom>=1){ fitClass='fit-ok';    fitLabel='Fits — tight'; fitIcon='ti-check'; }
+    else if (headroom>=-2){ fitClass='fit-tight'; fitLabel='Marginal'; fitIcon='ti-alert-triangle'; }
+    else                 { fitClass='fit-no';    fitLabel="Won't fit"; fitIcon='ti-x'; }
+
+    // Vision / reasoning from capabilities array (API field) with name fallback
+    var caps = Array.isArray(m.capabilities) ? m.capabilities : [];
+    var hasVision    = caps.indexOf('vision') >= 0
+                    || (m.type && m.type.toLowerCase().indexOf('vision') >= 0)
+                    || modelId.toLowerCase().indexOf('vision') >= 0
+                    || modelId.toLowerCase().indexOf('-vl') >= 0;
+    var hasReasoning = caps.indexOf('reasoning') >= 0
+                    || modelId.toLowerCase().indexOf('thinking') >= 0
+                    || modelId.toLowerCase().indexOf('reason') >= 0
+                    || modelId.toLowerCase().indexOf('qwq') >= 0
+                    || modelId.toLowerCase().indexOf('deepseek-r') >= 0;
+    var isEmbedding  = caps.indexOf('embedding') >= 0
+                    || (m.type && m.type === 'embedding')
+                    || modelId.toLowerCase().indexOf('embed') >= 0;
+    var arch         = m.architecture || m.arch || '';
+    var publisher    = m.publisher || '';
+
+    var badges = '';
+    if(isLoaded)     badges += '<span class="inst-badge badge-loaded">● In VRAM</span>';
+    if(isLoading)    badges += '<span class="inst-badge badge-loading">◌ Loading</span>';
+    if(hasVision)    badges += '<span class="inst-badge badge-vision"><i class="ti ti-eye" style="font-size:10px"></i> Vision</span>';
+    if(hasReasoning) badges += '<span class="inst-badge badge-reason"><i class="ti ti-brain" style="font-size:10px"></i> Reasoning</span>';
+    if(isEmbedding)  badges += '<span class="inst-badge badge-embed"><i class="ti ti-vector" style="font-size:10px"></i> Embedding</span>';
+
+    var metaParts = [params+'B', quant, '~'+vramGB+' GB'];
+    if(arch) metaParts.push(arch.charAt(0).toUpperCase()+arch.slice(1));
+    if(publisher) metaParts.push(publisher);
+
+    var card = document.createElement('div');
+    card.className = 'inst-card'
+      + (isLoaded ? ' is-loaded' : '')
+      + (wontFit  ? ' cant-fit' : '');
+    card.dataset.idx = idx;
+    card.dataset.wontfit = wontFit ? '1' : '0';
+
+    card.innerHTML =
+      '<div class="inst-name">'+displayName+'</div>'
+      + '<div class="inst-meta">'+metaParts.join(' &nbsp;·&nbsp; ')+'</div>'
+      + '<div class="inst-badges">'+badges+'</div>'
+      + '<span class="inst-fit '+(wontFit?'fit-no':fitClass)+'">'
+          + '<i class="ti '+fitIcon+'" style="font-size:12px"></i>'+fitLabel
+        + '</span>'
+      + '<div class="inst-headroom">'
+          + (headroom > 0 ? Math.round(headroom*10)/10+' GB free' : headroom > -3 ? 'tight' : 'over by '+Math.abs(Math.round(headroom*10)/10)+' GB')
+        + '</div>'
+      + '<div class="inst-ctx">Max ctx ~'+ctxDisplay
+          + (nativeCtx ? ' &nbsp;·&nbsp; Native: '+(nativeCtx>=1000?Math.round(nativeCtx/1024)+'K':nativeCtx)+' ctx' : '')
+        + '</div>';
+
+    // Mark embedding models as unselectable
+    if(isEmbedding) {
+      card.dataset.isembedding = '1';
+      card.classList.add('cant-fit'); // reuse dimming style
+    }
+
+    card.onclick = function(e) {
+      if (this.dataset.isembedding === '1') {
+        var msg = this.querySelector('.embed-msg');
+        if (!msg) {
+          msg = document.createElement('div');
+          msg.className = 'embed-msg';
+          msg.style.cssText = 'margin-top:6px;font-size:11px;color:var(--wtx);background:var(--bg3);border-radius:6px;padding:4px 8px';
+          msg.textContent = 'Embedding models generate vectors, not text — no settings to optimize.';
+          this.appendChild(msg);
+        }
+        msg.style.display = 'block';
+        setTimeout(function(){ msg.style.display='none'; }, 3000);
+        return;
+      }
+      if (this.dataset.wontfit === '1') {
+        var msg = this.querySelector('.wontfit-msg');
+        if (!msg) {
+          msg = document.createElement('div');
+          msg.className = 'wontfit-msg';
+          msg.style.cssText = 'margin-top:6px;font-size:11px;color:var(--dtx);background:var(--bg3);border-radius:6px;padding:4px 8px';
+          msg.textContent = 'Not enough VRAM for this model.';
+          this.appendChild(msg);
+        }
+        msg.style.display = 'block';
+        setTimeout(function(){ msg.style.display='none'; }, 2500);
+        return;
+      }
+      // Build a model object compatible with gen()
+      state.model = {
+        name: displayName,
+        params: params,
+        quant: quant,
+        vramGB: vramGB,
+        examples: modelId,
+        fromInstalled: true,
+        nativeCtx: nativeCtx
+      };
+      document.querySelectorAll('.inst-card').forEach(function(c){
+        c.classList.toggle('selected', c.dataset.idx === card.dataset.idx);
+      });
+      showAppStep();
+    };
+
+    grid.appendChild(card);
+  });
+}
+
+// ── close popups when clicking outside
 document.addEventListener('click', function(e){
   if(!e.target.closest('[onclick*="togglePopup"]') && !e.target.closest('.popup')){
     document.querySelectorAll('.popup').forEach(function(p){ p.style.display='none'; });
